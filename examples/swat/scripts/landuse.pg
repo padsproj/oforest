@@ -1,0 +1,12 @@
+#!/usr/bin/gnuplot
+reset
+
+set xlabel "Number of HRUs Changed To Organic Fertilizer"
+set ylabel "Organic Nitrogen (kg/hectare)"
+set terminal postscript
+set output "landuse.ps"
+set title "SWAT Land Use"
+set style line 1 lw 5 lc pi -1
+set pointintervalbox 3
+set key off
+plot "../LUResults/swatLandUseResults.txt" with linespoints ls 1

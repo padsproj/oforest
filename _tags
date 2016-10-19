@@ -1,0 +1,67 @@
+# OASIS_START
+# DO NOT EDIT (digest: 98c062d6adf9c9e4f66a5ae8e2fb1aca)
+# Ignore VCS directories, you can use the same kind of rule outside
+# OASIS_START/STOP if you want to exclude directories that contains
+# useless stuff for the build process
+true: annot, bin_annot
+<**/.svn>: -traverse
+<**/.svn>: not_hygienic
+".bzr": -traverse
+".bzr": not_hygienic
+".hg": -traverse
+".hg": not_hygienic
+".git": -traverse
+".git": not_hygienic
+"_darcs": -traverse
+"_darcs": not_hygienic
+# Library forest
+"lib/forest.cmxs": use_forest
+<lib/*.ml{,i,y}>: package(core)
+<lib/*.ml{,i,y}>: package(ppx_let)
+<lib/*.ml{,i,y}>: package(re)
+<lib/*.ml{,i,y}>: package(re.glob)
+<lib/*.ml{,i,y}>: package(str)
+<lib/*.ml{,i,y}>: package(threads)
+# Library parser
+"parsing/parser.cmxs": use_parser
+<parsing/*.ml{,i,y}>: package(compiler-libs.common)
+<parsing/*.ml{,i,y}>: package(core)
+<parsing/*.ml{,i,y}>: package(ppx_deriving.show)
+<parsing/*.ml{,i,y}>: package(ppx_let)
+<parsing/*.ml{,i,y}>: package(re)
+<parsing/*.ml{,i,y}>: package(re.glob)
+<parsing/*.ml{,i,y}>: package(str)
+<parsing/*.ml{,i,y}>: package(threads)
+<parsing/*.ml{,i,y}>: use_forest
+# Library ppx
+"ppx/ppx.cmxs": use_ppx
+# Executable ppx_forest
+<ppx/ppx_forest.{native,byte}>: package(compiler-libs.common)
+<ppx/ppx_forest.{native,byte}>: package(core)
+<ppx/ppx_forest.{native,byte}>: package(ppx_deriving.show)
+<ppx/ppx_forest.{native,byte}>: package(ppx_let)
+<ppx/ppx_forest.{native,byte}>: package(ppx_tools.metaquot)
+<ppx/ppx_forest.{native,byte}>: package(re)
+<ppx/ppx_forest.{native,byte}>: package(re.glob)
+<ppx/ppx_forest.{native,byte}>: package(re.str)
+<ppx/ppx_forest.{native,byte}>: package(str)
+<ppx/ppx_forest.{native,byte}>: package(threads)
+<ppx/ppx_forest.{native,byte}>: use_forest
+<ppx/ppx_forest.{native,byte}>: use_parser
+<ppx/ppx_forest.{native,byte}>: use_ppx
+<ppx/*.ml{,i,y}>: package(compiler-libs.common)
+<ppx/*.ml{,i,y}>: package(core)
+<ppx/*.ml{,i,y}>: package(ppx_deriving.show)
+<ppx/*.ml{,i,y}>: package(ppx_let)
+<ppx/*.ml{,i,y}>: package(ppx_tools.metaquot)
+<ppx/*.ml{,i,y}>: package(re)
+<ppx/*.ml{,i,y}>: package(re.glob)
+<ppx/*.ml{,i,y}>: package(re.str)
+<ppx/*.ml{,i,y}>: package(str)
+<ppx/*.ml{,i,y}>: package(threads)
+<ppx/*.ml{,i,y}>: use_forest
+<ppx/*.ml{,i,y}>: use_parser
+<ppx/*.ml{,i,y}>: use_ppx
+# OASIS_STOP
+<syntax/*.ml>: syntax_camlp4o, pkg_camlp4
+true: annot, bin_annot, debug, principal

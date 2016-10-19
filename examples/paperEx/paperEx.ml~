@@ -1,0 +1,58 @@
+(* 
+Use Makefile in examples directory
+
+Desugar:
+   make paperExD
+
+Compile:
+   make paperExC
+
+Run:
+   make paperExR
+
+*)
+
+open Forest
+
+let exName = "paperEx"
+
+let lines = Str.split (Str.regexp "\n") ;;
+
+<:forest< 
+  d = directory { 
+        index is "index.txt" :: file ;
+        data is [ f :: <file> | f <- $lines index_rep$ ] 
+      }
+>>
+
+
+open Printf
+open String
+
+let get_ex_dir () = (sprintf "%s/%s/%s" (Sys.getcwd ()) exName "exDir")
+
+let inc path =
+  d_new path >>= 
+  load >>| fun (r, md) ->
+  if md.num_errors = 0 then
+    let go fn cur = 
+      let _ = 
+        load cur >>| fun (s,_) ->
+        printf "%s: %d\n" fn (length s) 
+      in ()
+    in
+    List.iter2 go (lines r.index_prep) r.data_prep
+  else
+    failwith "Malformed filestore"
+
+let uninc path =
+  let (rep, md) = d_load path in
+  if md.num_errors = 0 then
+    let go fn s = printf "%s: %d\n" fn (length s) in
+    List.iter2 go (lines rep.index_rep) rep.data_rep
+  else
+    failwith "Malformed filestore"
+
+let _ = 
+  uninc (get_ex_dir ());
+  inc (get_ex_dir ())

@@ -1,0 +1,62 @@
+OASISFormat:    0.4
+OCamlVersion:   >= 4.03
+FindlibVersion: >= 1.3.2
+Name:           iForest
+Version:        0.0.1
+Synopsis:       Declarative language for file stores
+Authors:        Jonathan DiLorenzo, Richard Zhang, Nate Foster, Kathleen Fisher
+License:        LGPL
+Plugins:        META (0.4)
+BuildTools:     ocamlbuild
+AlphaFeatures: ocamlbuild_more_args
+XOCamlbuildExtraArgs: -use-menhir
+
+
+Library forest 
+  Path:          lib
+  BuildTools:    ocamlbuild
+  BuildDepends:  re, core,re.glob,str,threads,ppx_let
+  CompiledObject: best
+  Modules:       Forest, Pads, PadsParser, PadsLoader
+
+Library parser
+  Path:           parsing
+  BuildTools:     ocamlbuild, menhir, ocamllex
+  Findlibparent:  forest
+  Findlibname:    parser
+  BuildDepends:   forest, ppx_deriving.show, compiler-libs.common # str, core, re
+  CompiledObject: best
+  Modules:	   Parser_helper
+  InternalModules: Forest_lexer, All_types, Forest_parser
+
+Library ppx
+  Path:           ppx
+  BuildTools:     ocamlbuild
+  Findlibparent:  forest
+  Findlibname:    ppx
+  BuildDepends:   re, re.str, forest, forest.parser, ppx_tools.metaquot # core, threads, 
+  CompiledObject: best
+  Modules:        Ppx_forest
+  InternalModules: Ppx_forest_lib, Utility, Skins, Ppx_pads_lib
+  XMETAEnable:    true
+  XMETADescription: Syntax extension for iForest
+  XMETARequires:   str re core threads ppx_tools.metaquot
+  XMETAExtraLines:  ppx = "ppx_forest"
+
+Executable ppx_forest
+  Path:           ppx
+  MainIs:         ppx_forest.ml
+  BuildDepends:   forest, forest.ppx, ppx_tools.metaquot
+  CompiledObject: best
+
+#compiler-libs.common - Might need in future
+#ppx_driver 
+
+#Executable test_hello
+#  Build$:       flag(tests)
+#  Install:      false
+#  Path:         examples
+#  Custom:       true
+#  CompiledObject: best
+#  BuildDepends: forest, unix, str
+#  MainIs:       hello.ml

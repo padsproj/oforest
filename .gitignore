@@ -4,17 +4,24 @@
 *.cmi
 *.a
 *.o
+*.out
 *.cmx
 *.cmxs
 *.cmxa
+*~
 
 # ocamlbuild working directory
 _build/
 
-# ocamlbuild targets
+# ocamlbuild targets and generated files
 *.byte
 *.native
+*.mllib
+*.mldylib
+META
 
 # oasis generated files
 setup.data
 setup.log
+setup.ml
+myocamlbuild.ml

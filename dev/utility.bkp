@@ -1,0 +1,308 @@
+(* Old 
+(* Types *)
+type forest_regex =
+| Glob of forest_regexp_str
+| Regex of forest_regexp_str
+
+type gen =
+| Matches of loc * forest_regex
+| InList of loc * expr
+
+type predOrGen =
+| Guard of expr
+| Generator of varname * gen
+
+type pathType =
+| Constant of filepath
+| Variable of varname
+| OCaml_Expr of expr
+
+type spec =
+  | Print of exp
+  | SkinApp of exp * skin
+and exp = 
+  | Var of loc * varname
+  | Pads of loc * varname
+  | URL of loc * exp
+  | File of loc
+  | Link of loc 
+  | Option of loc * exp 
+  (* Maybe add a dpair? *)
+  | Directory of loc * (loc * varname * exp) list
+  (* Bool is whether it's a map or a list *)
+  | Comprehension of loc * (loc * predOrGen) list * exp * bool
+  | PathExp of loc * pathType * exp
+  | Predicate of loc * exp * expr
+  | Thunked of loc * exp
+  | Special of loc * spec 
+
+type fdist = loc * varname * exp 
+type sdist = loc * varname * skin
+*)
+
+
+let rec insert_to_bottom e1 e2 = 
+  match e1 with
+  | ExNil(_) -> e2
+  | ExLet(l,f,b,e) -> ExLet(l,f,b,insert_to_bottom e e2)
+  | _ -> failwith "Insert_to_bottom failed unexpectedly"
+
+
+
+let rec traverse_expr ?(f_exp=(fun _ a -> a)) ?(f_id=(fun _ a -> a)) e a =
+  match e with
+  | ExInt(_)
+  | ExInt32(_)
+  | ExInt64(_)
+  | ExNativeInt(_)
+  | ExFlo(_)
+  | ExAnt(_)
+  | ExChr(_)
+  | ExStr(_)
+  | ExVrn(_)
+  | ExPkg(_)
+  | ExObj(_)
+  | ExOvr(_)
+  | ExFun(_)
+  | ExNil(_)
+  | ExAsf(_) -> f_exp e a
+  | ExNew(_,i)
+  | ExId(_,i) -> traverse_ident ~f_id:f_id i (f_exp e a)
+  | ExCoe(_,e1,_,_)
+  | ExTyc(_,e1,_)
+  | ExLab(_,_,e1)
+  | ExFUN(_,_,e1)
+  | ExOlb(_,_,e1)
+  | ExSnd(_,e1,_)
+  | ExRec(_,_,e1)
+  | ExLet(_,_,_,e1)
+  | ExLmd(_,_,_,e1)
+  | ExMat(_,e1,_)
+  | ExTry(_,e1,_)
+  | ExAtt(_,_,_,e1)
+  | ExTup(_,e1)
+  | ExLaz(_,e1)
+  | ExArr(_,e1)
+  | ExSeq(_,e1)
+  | ExAsr(_,e1) -> traverse_expr ~f_id:f_id ~f_exp:f_exp e1 (f_exp e a)
+  | ExOpI(_,i,_,e1) ->  traverse_expr ~f_id:f_id ~f_exp:f_exp e1 (traverse_ident ~f_id:f_id i (f_exp e a))
+  | ExAcc(_,e1,e2)
+  | ExApp(_,e1,e2)
+  | ExAre(_,e1,e2)
+  | ExSem(_,e1,e2)
+  | ExAss(_,e1,e2)
+  | ExSte(_,e1,e2)
+  | ExCom(_,e1,e2)
+  | ExWhi(_,e1,e2) -> traverse_expr ~f_id:f_id ~f_exp:f_exp e2 (traverse_expr ~f_id:f_id ~f_exp:f_exp e1 (f_exp e a))
+  | ExFor(_,_,e1,e2,_,e3)
+  | ExIfe(_,e1,e2,e3) -> traverse_expr ~f_id:f_id ~f_exp:f_exp e3 (traverse_expr ~f_id:f_id ~f_exp:f_exp e2 (traverse_expr ~f_id:f_id ~f_exp:f_exp e1 (f_exp e a)))
+
+and traverse_ident ?(f_id=(fun _ a -> a)) i a =
+  match i with
+  | IdAcc(_,i1,i2)
+  | IdApp(_,i1,i2) -> traverse_ident ~f_id:f_id i2 (traverse_ident ~f_id:f_id i1 (f_id i a))
+  | IdLid(_,s)
+  | IdUid(_,s)
+  | IdAnt(_,s) -> f_id i a
+
+let rec map_expr ?(f_exp=(fun e -> e)) ?(f_id=(fun i -> i)) e =
+  let map_e = map_expr ~f_exp:f_exp ~f_id:f_id in
+  let map_i = map_id ~f_id:f_id in
+  match e with
+  | ExNew(_loc,i) -> f_exp (ExNew(_loc,map_i i))
+  | ExId(_loc,i) -> f_exp (ExId(_loc,map_i i))
+  | ExCoe(_loc,e1,ct1,ct2) -> f_exp (ExCoe(_loc,map_e e1,ct1,ct2))
+  | ExTyc(_loc,e1,ct1) -> f_exp (ExTyc(_loc,map_e e1,ct1))
+  | ExLab(_loc,s,e1) -> f_exp (ExLab(_loc,s,map_e e1))
+  | ExFUN(_loc,s,e1) -> f_exp (ExFUN(_loc,s,map_e e1))
+  | ExOlb(_loc,s,e1) -> f_exp (ExOlb(_loc,s,map_e e1))
+  | ExSnd(_loc,e1,s) -> f_exp (ExSnd(_loc,map_e e1,s))
+  | ExRec(_loc,rb,e1) -> f_exp (ExRec(_loc,rb,map_e e1))
+  | ExLet(_loc,rf,b,e1) -> f_exp (ExLet(_loc,rf,b,map_e e1))
+  | ExLmd(_loc,s,me,e1) -> f_exp (ExLmd(_loc,s,me,map_e e1))
+  | ExMat(_loc,e1,mc) -> f_exp (ExMat(_loc,map_e e1,mc))
+  | ExTry(_loc,e1,mc) -> f_exp (ExTry(_loc,map_e e1,mc))
+  | ExAtt(_loc,bytes,str_item,e1) -> f_exp (ExAtt(_loc,bytes,str_item,map_e e1))
+  | ExTup(_loc,e1) -> f_exp (ExTup(_loc,map_e e1))
+  | ExLaz(_loc,e1) -> f_exp (ExLaz(_loc,map_e e1))
+  | ExArr(_loc,e1) -> f_exp (ExArr(_loc,map_e e1))
+  | ExSeq(_loc,e1) -> f_exp (ExSeq(_loc,map_e e1))
+  | ExAsr(_loc,e1) -> f_exp (ExAsr(_loc,map_e e1)) 
+  | ExOpI(_loc,i,override_flag,e1) -> f_exp (ExOpI(_loc,map_i i,override_flag,map_e e1)) 
+  | ExAcc(_loc,e1,e2) -> f_exp (ExAcc(_loc,map_e e1,map_e e2)) 
+  | ExApp(_loc,e1,e2) -> f_exp (ExApp(_loc,map_e e1,map_e e2)) 
+  | ExAre(_loc,e1,e2) -> f_exp (ExAre(_loc,map_e e1,map_e e2)) 
+  | ExSem(_loc,e1,e2) -> f_exp (ExSem(_loc,map_e e1,map_e e2)) 
+  | ExAss(_loc,e1,e2) -> f_exp (ExAss(_loc,map_e e1,map_e e2)) 
+  | ExSte(_loc,e1,e2) -> f_exp (ExSte(_loc,map_e e1,map_e e2)) 
+  | ExCom(_loc,e1,e2) -> f_exp (ExCom(_loc,map_e e1,map_e e2)) 
+  | ExWhi(_loc,e1,e2) -> f_exp (ExWhi(_loc,map_e e1,map_e e2)) 
+  | ExFor(_loc,s,e1,e2,df,e3) -> f_exp (ExFor(_loc,s,map_e e1,map_e e2,df,map_e e3)) 
+  | ExIfe(_loc,e1,e2,e3) -> f_exp (ExIfe(_loc,map_e e1,map_e e2,map_e e3))
+  | ExInt(_loc,s)
+  | ExInt32(_loc,s)
+  | ExInt64(_loc,s)
+  | ExNativeInt(_loc,s)
+  | ExFlo(_loc,s)
+  | ExAnt(_loc,s)
+  | ExChr(_loc,s)
+  | ExStr(_loc,s)
+  | ExVrn(_loc,s) -> f_exp e
+  | ExPkg(_loc,me) -> f_exp e
+  | ExObj(_loc,p,csi) -> f_exp e
+  | ExOvr(_loc,rb) -> f_exp e
+  | ExFun(_loc,mc) -> f_exp e
+  | ExNil(_loc)
+  | ExAsf(_loc) -> f_exp e
+
+
+and map_id ?(f_id=(fun i -> i)) i =
+  let map_i = map_id ~f_id:f_id in
+  match i with 
+  | IdAcc(_loc,i1,i2) -> f_id (IdAcc(_loc,map_i i1, map_i i2))
+  | IdApp(_loc,i1,i2) -> f_id (IdApp(_loc,map_i i1, map_i i2))
+  | IdLid(_loc,s) 
+  | IdUid(_loc,s) 
+  | IdAnt(_loc,s) -> f_id i
+
+let get_idents_from_expr regstr e =
+  traverse_expr e [] ~f_id:(fun i a ->
+    match i with
+    | IdLid(_,s)
+    | IdUid(_,s)
+    | IdAnt(_,s) -> 
+      if Str.string_match (Str.regexp regstr) s 0 
+      then if (Str.string_after s (Str.match_end ())) = ""
+	then s :: a
+	else a
+      else a
+	(*
+      (try 
+	 let _ = Str.search_forward (Str.regexp regstr) s 0 in
+	 s :: a
+       with _ -> a)*)
+    | _ -> a)
+
+let mod_idents_in_expr regstr newstr e =
+  map_expr ~f_id:(fun i ->
+    match i with 
+    | IdLid(_loc,s) -> IdLid(_loc,Str.global_replace (Str.regexp regstr) newstr s)
+    | IdUid(_loc,s) -> IdUid(_loc,Str.global_replace (Str.regexp regstr) newstr s)
+    | IdAnt(_loc,s) -> IdAnt(_loc,Str.global_replace (Str.regexp regstr) newstr s)
+    | _ -> i
+  ) e
+
+let pred_ident_change inc e =
+  if inc
+  then
+    let e = mod_idents_in_expr "_rep\\(\\.\\|$\\)" "_prep\\1" e in
+    let e = mod_idents_in_expr "_md\\(\\.\\|$\\)" "_pmd\\1" e in
+    e
+  else
+    let e = mod_idents_in_expr "_prep\\(\\.\\|$\\)" "_rep\\1" e in
+    let e = mod_idents_in_expr "_pmd\\(\\.\\|$\\)" "_md\\1" e in
+    e
+
+let pred_str_change inc str =
+  if inc
+  then
+    let str = Str.global_replace (Str.regexp "_rep\\(\\.\\|$\\)") "_prep\\1" str in
+    let str = Str.global_replace (Str.regexp "_md\\(\\.\\|$\\)") "_pmd\\1" str in
+    str
+  else
+    let str = Str.global_replace (Str.regexp "_prep\\(\\.\\|$\\)") "_rep\\1" str in
+    let str = Str.global_replace (Str.regexp "_pmd\\(\\.\\|$\\)") "_md\\1" str in
+    str
+
+
+let list_to_expr _loc l =
+  List.fold_right (fun x acc ->
+  <:expr< [$x$ :: $acc$] >>) l
+  <:expr< [] >>
+    
+let tuplefyE _loc eList = 
+  match eList with 
+  | [] -> <:expr< () >>
+  | hd :: [] -> exCom_of_list eList
+  | _ -> ExTup(_loc,exCom_of_list eList) 
+
+let tuplefyP _loc pList = 
+  match pList with
+  | [] -> <:patt< () >>
+  | hd :: [] -> paCom_of_list pList
+  | _ -> PaTup(_loc,paCom_of_list pList) 
+
+let rec fexp_map f (fexp : exp) = 
+  match fexp with
+  | Var(_loc,_)
+  | Pads(_loc, _)
+  | File(_loc)
+  | Link(_loc) -> f fexp
+  | URL(_loc,e) -> f (URL(_loc,fexp_map f e))
+  | PathExp(_loc,ptype,exp) -> f (PathExp(_loc,ptype,fexp_map f exp))
+  | Thunked(_loc,exp) -> f (Thunked(_loc,fexp_map f exp))
+  | Option(_loc, exp) -> f (Option(_loc,fexp_map f exp))
+  | Predicate (_loc,e,expr) -> f (Predicate(_loc,fexp_map f e,expr))
+  | Directory (_loc, lst) -> 
+    let newlst = List.map (fun (_loc,name,exp) -> (_loc,name,fexp_map f exp)) lst in
+    f (Directory(_loc,newlst))
+  | Comprehension(_loc,glist,exp,bool) ->
+    f (Comprehension(_loc,glist,fexp_map f exp,bool))
+  | Special _ -> failwith "Special constructs can't exist in forest descriptions"
+
+let get_path (exp : exp) = 
+  match exp with
+  | PathExp(_loc,ptype,_) ->
+    (match ptype with
+    | Constant(pathi) ->
+    <:expr< (Printf.sprintf "%s/%s" path $str:pathi$) >>
+    | Variable(pathi) ->
+    <:expr< (Printf.sprintf "%s/%s" path $lid:pathi$) >>
+    | OCaml_Expr(pathi) ->
+    <:expr< (Printf.sprintf "%s/%s" path $pathi$) >> 
+    )
+  | Var(_loc, _)
+  | Pads(_loc, _) 
+  | Thunked(_loc, _)
+  | URL(_loc,_)
+  | Option(_loc, _)
+  | File(_loc) 
+  | Link(_loc) 
+  | Directory (_loc, _)
+  | Predicate(_loc,_,_)
+  | Comprehension(_loc,_,_,_) ->  <:expr< path >>
+  | Special(_loc,_) -> failwith "Special constructs can't exist in forest descriptions"
+
+
+let rec forest_cost_eval ?inc:(inc=false) (e:exp) (vName : string) : expr = 
+  let (md_name, rep_name,cost_name) = if inc then (pmd_name,prep_name,inccost_name) else (md_name,rep_name,cost_name) in
+  match e with
+  | Pads(_loc, _)
+  | URL(_loc, _) 
+  | File(_loc) -> <:expr< (fun (r,m) -> 1)>>
+  | Link(_loc) -> <:expr< (fun (r,m) -> 1)>>
+  | Var(_loc, x) -> <:expr< $lid:cost_name x$ >> 
+  | Predicate(_loc,e,_)
+  | PathExp(_loc, _,e) -> forest_cost_eval ~inc:inc e vName
+  | Thunked(_loc, e) -> if inc
+    then <:expr< (fun (r,m) -> get_cost r ())>>
+    else forest_cost_eval e vName
+  | Option(_loc, e) -> <:expr< (fun (r,m) -> match (r,m.data) with 
+    [ (None,_) -> 0
+    | (Some(r),Some(m)) -> $forest_cost_eval ~inc:inc e vName$ (r,m) 
+    | _ -> failwith "This should be impossible"])>>
+  | Directory (_loc, es) -> 
+    let ctype = <:ctyp<($TyId(_loc,(IdLid(_loc,rep_name vName)))$ * $TyId(_loc,(IdLid(_loc,md_name vName)))$)>> in
+    let sumExp = List.fold_left (fun acc (_loc,lbli,e) ->  <:expr< $lid:lbli$ + $acc$ >>) <:expr< 0>> es in
+    let assignments = List.fold_right (fun (_loc,lbli,expi) costacc -> 
+      <:expr< let $lid:lbli$ = $forest_cost_eval ~inc:inc expi vName$ (r.$lid:rep_name lbli$,m.data.$lid:md_name lbli$) in  $costacc$ >>
+    ) es sumExp
+    in
+    <:expr< (fun ((r,m) : $ctype$)-> 
+      $assignments$)
+    >>
+  | Comprehension(_loc,_,e,map) ->
+    if map
+    then <:expr< (fun (r,m) -> PathMap.fold (fun key m acc -> let r = PathMap.find key r in $forest_cost_eval ~inc:inc e vName$ (r,m)) m.data 0)>>
+    else <:expr< (fun (r,m) -> List.fold_left2 (fun acc r m -> ($forest_cost_eval ~inc:inc e vName$ (r,m)) + acc) 0 r m.data) >>  
+  | Special(_loc,_) -> lFail _loc "Special constructs can't exist in forest descriptions"
