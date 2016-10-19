@@ -31,7 +31,8 @@ let init loc =
   [%str 
    open Forest
    module CursorMonad = Forest.CursorMonad(CostMon)
-   open CursorMonad  
+   open CursorMonad
+   open CursorMonad.Let_syntax
    (* TODO: Is there a way to make this abstract without breaking all things? *)
    type ('a,'b) cursor = [%t cursortype]
    let load (cur : ('a,'b) cursor) : ('a * 'b) CursorMonad.t = [%e load_cur]
@@ -124,7 +125,8 @@ let rec forest_cost_gen (e : forest_node ast) (vName : string) : Parsetree.expre
  match e with
   | SkinApp(_,_) -> raise_loc_err loc "forest_cost_gen: Skin applications should not exist here."
   | Var(x) -> exp_make_ident loc (cost_name x) 
-  | Thunked(_) 
+  | Thunked(_)
+  (* TODO: Think up a cost for PADS? *)
   | Pads(_)
   | Url(_) -> [%expr fun (r,m) -> CursorMonad.cost_id ][@metaloc loc]
 
@@ -1078,10 +1080,10 @@ let rec delay_checker (fast : forest_node ast) : bool =
 let rec dependency_grapher (vlist : varname list) (fast : forest_node ast)  : forest_node ast =
   let e,loc = get_NaL fast in
   match e with
-  | File -> mk_ast loc File
-  | Link -> mk_ast loc Link
-  | Var(x) -> mk_ast loc @@ Var x
-  | Pads(x) -> mk_ast loc @@ Pads x
+  | File 
+  | Link 
+  | Var _
+  | Pads _ -> fast
 
   | Option(fast) ->
      let newfast = dependency_grapher vlist fast in
@@ -1166,25 +1168,41 @@ let rec dependency_grapher (vlist : varname list) (fast : forest_node ast)  : fo
      mk_ast loc @@ Directory (List.rev newdlist)
   | SkinApp(_,_) -> raise_loc_err loc "thunk_checker: Skin applications should not exist here."
 
-let def_generator loc  (flist : (varname * forest_node ast) list) : structure =
+(* TODO: Decide how we want to do path expressions *)
+let rec fix_exp (fast : forest_node ast)  : forest_node ast =
+  let e,loc = get_NaL fast in
+  match e with
+  | Thunked(f) ->
+     let e2,l2 = get_NaL f in
+     begin
+       match e2 with
+       | PathExp(ptype,f2) ->
+          begin match f2.node with
+          (* Thunk inside path expression, remove outer thunk *) 
+          | Thunked _ -> fix_exp f
+          (* Normal path expression, move thunking inside *)
+          | _ -> mk_ast l2 @@ PathExp (ptype,fix_exp (mk_ast loc (Thunked f2)))
+          end
+       | Thunked(f2) -> fix_exp f (* Double thunk, remove outer layer *)
+       | _ -> fast (* Normal thunk *)
+     end
+  | Url fast -> mk_ast loc @@ Url(fix_exp fast)
+  | Option fast -> mk_ast loc @@ Option (fix_exp fast)
+  | Comprehension(c,fast,pl) -> mk_ast loc @@ Comprehension (c,fix_exp fast,pl)
+  | PathExp(pt,fast) -> mk_ast loc @@ PathExp (pt,fix_exp fast)
+  | Predicate(fast,aquot) -> mk_ast loc @@ Predicate (fix_exp fast,aquot)
+  | Directory(dlist) ->
+     let new_dlist = List.map (fun (x,f) -> (x,fix_exp f)) dlist in
+     mk_ast loc @@ Directory new_dlist
+  | SkinApp _ -> raise_loc_err loc "fix_exp: Skin applications should not exist here."
+  | _ -> fast
+  
+     
+let def_generator loc (flist : (varname * forest_node ast) list) : structure =
   let def_gen ((name,e) : (varname * forest_node ast)) (tlist,llist)  : (type_declaration list * structure) =
     let loc = get_loc e in
     let e = Skins.doSkinning loc (name,e) in
-(* TODO: Decide if you still want to fix up path expressions
-  let e = fexp_map 
-  (fun e ->
-  match e with
-  | Thunked(_loc,e) -> 
-  begin
-  match e with
-  | PathExp(_,ptype,Thunked _) -> e 
-  | PathExp(_,ptype,e) -> PathExp(_loc,ptype,Thunked(_loc,e))
-  | _ -> Thunked(_loc,e)
-  end
-  | _ -> e
-  ) e
-  in
-*)
+    let e = fix_exp e in (* Fixes path expressions *)
     let _ = Hashtbl.replace Utility.forestTbl name e in
     let e =
       match e.node with

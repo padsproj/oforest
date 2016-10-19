@@ -135,8 +135,7 @@ let glob_match (reg : forest_glob) (str : string) : bool =
 let glob_match_from_string (str : forest_regexp_str) : string -> bool = glob_match (glob_from_string str)
 
 let get_md_info (path : filepath) : file_info option =
-  if Sys.file_exists path
-  then
+  try 
     let stats = Unix.lstat path in (*TODO(Richard): Maybe we want Unix.stat here?*)
     Some { full_path = path; (* TODO(jnf): fix this *)
            owner = stats.st_uid;
@@ -147,7 +146,9 @@ let get_md_info (path : filepath) : file_info option =
            access_time = stats.st_atime;
            modify_time = stats.st_mtime;
            change_time = stats.st_ctime } 
-  else None
+  with Unix_error(ENOENT,_,_) -> None
+  (* TODO: Fails miserably if there are other errors, which is nice for 
+   * our debugging but shouldn't be in final system *)
 
 let empty_info (path : filepath) : file_info =
   let time = Unix.time () in
@@ -221,10 +222,10 @@ let load_link (path:string) : string * unit forest_md =
          error_msg = [Printf.sprintf "%s: Not an symlink" path];
          load_time = Time.abs_diff currTime (Time.now ())})
   with 
-  | Sys_error s ->
+  | Unix_error (e,_,_) ->
       (errrep,
        {errmd with 
-         error_msg =  [Printf.sprintf "Sys_error: %s" s];
+         error_msg =  [Printf.sprintf "Unix_error: %s" (Unix.error_message e)];
          load_time = Time.abs_diff currTime (Time.now ())})
   | _ ->
       (errrep,

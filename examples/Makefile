@@ -27,16 +27,17 @@ dircompD: dircomp/dircomp.ml
 dircompR:
 	if [ ! -e "dircomp.out" ]; then make dircomp; fi; ./dircomp.out
 
-featTesting: featTestingC
 
-featTestingC: featTesting/test.ml
-	cd ..; ./compileEx.sh examples/featTesting/test.ml
+oopsla: oopslaC
 
-featTestingD: featTesting/test.ml
-	../desugar.sh featTesting/test.ml
+oopslaC: oopsla/oopsla.ml
+	../compileEx.sh oopsla/oopsla.ml
 
-featTestingR: 
-	if [ ! -e "../test.out" ]; then make featTesting; fi; cd ..; ./test.out
+oopslaD: oopsla/oopsla.ml
+	../desugar.sh oopsla/oopsla.ml
+
+oopslaR:
+	if [ ! -e "oopsla.out" ]; then make oopsla; fi; ./oopsla.out
 
 paperEx: paperExC
 
@@ -72,4 +73,4 @@ universalR:
 	if [ ! -e "universal.out" ]; then make universal; fi; ./universal.out
 
 clean:
-	rm -f simple.out ../test.out universal.out ../accounts.out paperEx.out
+	rm -f simple.out oopsla.out universal.out ../accounts.out paperEx.out

@@ -43,9 +43,6 @@ module CostMon = Forest.CostNameMon
   d4 = d @ d4Skin
 |}]
 
-open CursorMonad.Let_syntax
-
-
 open Printf
 open String
 
@@ -74,12 +71,6 @@ let inc path =
     let error = String.concat "\n" md.error_msg in
     failwith (Printf.sprintf "%s" error)
 
-let test_bind_syntax path =
-  let%bind cur = d2_new path in
-  let%bind (r1,m1) = load cur in
-  let%bind (r2,m2) = load r1.data in
-  return ()
-      
 let _ =
   let _ = classic (get_ex_dir ()) in
   let (_,c) = run (inc @@ get_ex_dir ()) in
