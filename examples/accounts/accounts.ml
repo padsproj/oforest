@@ -98,7 +98,7 @@ let inc_withdraw path client amount =
   if List.length mani.errors > 0 then print_errors mani else store mani
 
 let () =
-  let dir = Printf.sprintf "%s/%s" (Sys.getcwd ()) "accountsTesting" in
+  let dir = Printf.sprintf "%s/accounts/%s" (Sys.getcwd ()) "accountsTesting" in
   print_string "Richard's balance: "; print_int (balance dir (dir ^ "/richard")); print_endline "";
   withdraw dir (dir ^ "/richard") 10;
   print_endline "Withdrew 10";

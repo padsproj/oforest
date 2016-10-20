@@ -2,9 +2,25 @@ Improvements:
 - Do we want functions and function application in Skins?
 - For skin types, how should we add typeof operator?
 
+
 Issues:
 - Why can't we use Str and Forest in the ppx code?
-
+-
+(* Make sure thunks work right with predicates and path expressions:
+ * E.g. For predicates, force correctly if there's a 'this' or make <f> where p = <f where p>?
+ * For Path exps, I made  <_ :: f> -> _ :: <f>, but it's not obvious
+ * this is exactly what we want.
+ *)
+- Is there a way to make the cursor abstract without breaking all
+things?
+- Since we don't require commutativity for costs, we need to make sure
+the ordering is correct in comprehension calculation.
+- Since it is important for the manifest generation whether we are
+inside a manifest generation already or not, make sure that the
+'inside' variable should be true for manifests in forest_new_gen where
+'first' is not true.
+- Fix URL loading/assure yourself that it is correct
+-- What do we do with the path if URL loading is wrong for example.
 
 Parsing:
 Useful for parser testing:
@@ -120,3 +136,36 @@ let forest_print_desc ?name:(name="forest_desc") (e : exp) : string =
   in
   String.concat "" ["\t";name;" = ";print_desc e]
   *)
+
+ppx_forest_lib.ml:
+
+In forest_new_gen, maybe we should match on paths and do different
+  things? Solved by how thunks work I think.
+  (*
+  | PathExp( ptype,Var(l2,x)) -> 
+    (match ptype with
+    | Constant(pathi) ->
+      [%expr: (fun path -> $lid:new_nameR x$ (Filename.concat path $str:pathi$ ))] 
+    | Variable(pathi) ->
+      [%expr: (fun path -> $lid:new_nameR x$ (Filename.concat path $lid:pathi$ ))] 
+    | OCaml_Expr(e) -> 
+      [%expr: (fun path -> $lid:new_nameR x$ (Filename.concat path $e$ ))] 
+      )
+     *)
+
+
+Manifests:
+For manifests in ppx_forest_lib.ml, forest_new_gen
+               (*
+               let sfunc ?dirname:(dirname="") ?basename:(basename="") () = 
+               (* Makes the store function update dethunked value basically *)
+                 if dirname = "" && basename = ""
+                 then manifest.storeFunc ()
+                 else if dirname = ""
+                 then manifest.storeFunc ~basename:basename ()
+                 else if basename = ""
+                 then manifest.storeFunc ~dirname:dirname ()
+                 else manifest.storeFunc ~basename:basename ~dirname:dirname ()
+                 in
+                 {tmppath = manifest.tmppath; storeFunc = manifest.sfunc; errors = manifest.errors}
+               *)

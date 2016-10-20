@@ -4,12 +4,6 @@ open Asttypes
 open Parsetree
 open Ast_helper
 
-(* TODO: Make sure thunks work right with predicates and path expressions:
- * E.g. For predicates, force corretly if there's a 'this' or make <f> where p = <f where p>?
- * For Path exps, make _ :: <f> = <_ :: f>?
- *)
-
-
 (* Inititalization step *)
 
 let init loc = 
@@ -30,7 +24,6 @@ let init loc =
    module CursorMonad = Forest.CursorMonad(CostMon)
    open CursorMonad
    open CursorMonad.Let_syntax
-   (* TODO: Is there a way to make this abstract without breaking all things? *)
    type ('a,'b) cursor = [%t cursortype]
    let load (cur : ('a,'b) cursor) : ('a * 'b) CursorMonad.t = [%e load_cur]
    let manifest (cur : ('a,'b) cursor) ((rep,md) : ('a * 'b)) :manifest CursorMonad.t = [%e mani_cur]
@@ -57,9 +50,9 @@ let rec forest_rep_gen (e: forest_node ast) : (type_declaration list * core_type
   | File ->
     [], [%type: string ][@metaloc loc]
   | Link ->
-    [], [%type: filepath ][@metaloc loc] (* Representing a filepath here *)
+    [], [%type: filepath ][@metaloc loc]
   | Var(vname) -> 
-    [],  typ_make_constr loc (rep_name vname) (*Typ.var (rep_name vname)) *)
+    [],  typ_make_constr loc (rep_name vname)
   | Pads(vname) ->
     [],  typ_make_constr loc (pads_rep_name vname)
   | Comprehension(Map,fast,_) ->
@@ -105,7 +98,7 @@ and forest_md_gen (e: forest_node ast) : (type_declaration list * core_type) =
     let decli,typi = forest_md_gen fast in
     (decli,[%type: ([%t typi] list) Forest.forest_md ][@metaloc loc])
   | Directory (dlist) ->
-    let decls,fields = (*Maybe fold_left? *)
+    let decls,fields = 
       List.fold_right (fun (labeli,fasti) (decls,fields) ->
         let decli, typi = forest_md_gen fasti in 
         let fieldi = typ_make_field loc (md_name labeli) typi in
@@ -123,7 +116,6 @@ let rec forest_cost_gen (e : forest_node ast) (vName : string) : Parsetree.expre
   | SkinApp(_,_) -> raise_loc_err loc "forest_cost_gen: Skin applications should not exist here."
   | Var(x) -> exp_make_ident loc (cost_name x) 
   | Thunked(_)
-  (* TODO: Think up a cost for PADS? *)
   | Pads(_)
   | Url(_) -> [%expr fun (r,m) -> CursorMonad.cost_id ][@metaloc loc]
 
@@ -140,9 +132,6 @@ let rec forest_cost_gen (e : forest_node ast) (vName : string) : Parsetree.expre
        | (_,None) -> failwith "Option contained a representation, but no metadata. Should be impossible."
        | (Some(r),Some(m)) -> [%e forest_cost_gen e vName] (r,m)
      ][@metaloc loc]
-
-  (* TODO: Since we do not require commutativity, we need to make sure the
-     ordering is correct here *)
   | Comprehension(Map,e,_) ->
      [%expr fun (r,m) -> 
        PathMap.fold (fun key m acc -> 
@@ -194,17 +183,6 @@ and forest_new_gen ?first:(first=false) (e: forest_node ast) (vName : string) : 
   | SkinApp(_,_) -> raise_loc_err loc "forest_new_gen: Skin applications should not exist here."
   | Var(x) -> exp_make_ident loc (new_nameR x) 
   | Thunked(e) -> forest_new_gen e vName
-  (*
-  | PathExp( ptype,Var(l2,x)) -> 
-    (match ptype with
-    | Constant(pathi) ->
-      [%expr: (fun path -> $lid:new_nameR x$ (Filename.concat path $str:pathi$ ))] 
-    | Variable(pathi) ->
-      [%expr: (fun path -> $lid:new_nameR x$ (Filename.concat path $lid:pathi$ ))] 
-    | OCaml_Expr(e) -> 
-      [%expr: (fun path -> $lid:new_nameR x$ (Filename.concat path $e$ ))] 
-      )
-     *)
   | File
   | Pads(_)
   | Link 
@@ -236,24 +214,10 @@ and forest_new_gen ?first:(first=false) (e: forest_node ast) (vName : string) : 
                (rep,md,cost)
              in
              let mani (r,m) = 
-               (* TODO: Make sure 'inside' variable should be true *)
                let manifest = 
                  [%e if first then exp_make_ident loc (manifest_name vName) else forest_manifest_gen true e vName] (r,m)
                in
                manifest 
-               (*
-               let sfunc ?dirname:(dirname="") ?basename:(basename="") () = 
-               (* Makes the store function update dethunked value basically *)
-                 if dirname = "" && basename = ""
-                 then manifest.storeFunc ()
-                 else if dirname = ""
-                 then manifest.storeFunc ~basename:basename ()
-                 else if basename = ""
-                 then manifest.storeFunc ~dirname:dirname ()
-                 else manifest.storeFunc ~basename:basename ~dirname:dirname ()
-                 in
-                 {tmppath = manifest.tmppath; storeFunc = manifest.sfunc; errors = manifest.errors}
-               *)
              in
              (lfunc,mani))
        ][@metaloc loc]
@@ -318,10 +282,6 @@ and forest_load_gen (e: forest_node ast) (vName : string) : Parsetree.expression
                              [%t typ_make_constr loc (md_name vName)])
                    ][@metaloc loc]
     in
-
-(* 
-*)
-
     let rep_assgn = List.map (fun (lbli,_) -> lbli,lbli) dlist in 
     let md_assgn = List.map (fun (lbli,_) -> (md_name lbli),(md_name lbli)) dlist in
     let numErr = List.fold_left (fun acc (lbli,e) ->
@@ -527,7 +487,7 @@ and forest_load_gen (e: forest_node ast) (vName : string) : Parsetree.expression
       let _ = Unix.mkdir tmpdir 0o770 in
       let errCode = Sys.command ("wget -P " ^ tmpdir ^ " " ^ path) in
       let fNames = Array.to_list (Sys.readdir tmpdir) in
-      let path = if List.length fNames > 1 then tmpdir else Filename.concat tmpdir (List.hd fNames) in (*TODO: What if it fails? *)
+      let path = if List.length fNames > 1 then tmpdir else Filename.concat tmpdir (List.hd fNames) in 
       let (r,md) = [%e forest_load_gen e vName] path in
       let newmd = if errCode = 0 then md
         else {data = md.data;
@@ -536,7 +496,7 @@ and forest_load_gen (e: forest_node ast) (vName : string) : Parsetree.expression
               load_time = no_time;
               num_errors = md.num_errors + 1}
       in
-      (r,newmd) ][@metaloc loc] (*TODO: FIX THIS/Make sure it is correct *)
+      (r,newmd) ][@metaloc loc]
   | Thunked(e) -> 
      add_timing [%expr ([%e forest_new_gen e vName] path,Forest.unit_md path) ][@metaloc loc]
   | SkinApp(_,_) -> raise_loc_err loc "forest_load_gen: Skin applications should not exist here."
