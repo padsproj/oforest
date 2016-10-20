@@ -1,6 +1,4 @@
-open All_types (*
-open Core.Std
-                  *)
+open Forest_types
 open Lexing
 open Printf
 open Location
@@ -39,13 +37,9 @@ let x_parse_string (f : lexbuf -> (varname * 'a) list) (loc : Location.t) (str :
        
 let forest_parse_with_error =x_parse_with_error Forest_parser.forest_prog Forest_lexer.forest_read
 let skin_parse_with_error = x_parse_with_error Forest_parser.skin_prog Forest_lexer.skin_read 
-let pads_parse_with_error = x_parse_with_error Forest_parser.pads_prog Forest_lexer.pads_read       
 
 let forest_parse_string = x_parse_string forest_parse_with_error
 let skin_parse_string = x_parse_string skin_parse_with_error
-let pads_parse_string = x_parse_string pads_parse_with_error
-
-
 
 let forest_lex_string loc str =
   let lexbuf = Lexing.from_string str in
@@ -55,13 +49,3 @@ let forest_lex_string loc str =
     | x -> x :: (lexing lexbuf) 
   in
   lexing lexbuf
-
-(*
-  lexbuf.lex_curr_p <- { lexbuf.lex_curr_p with pos_fname = filename };
-let rec parse_and_print lexbuf =
-  match parse_with_error lexbuf with
-  | Some value ->
-    printf "%a\n" Json.output_value value;
-    parse_and_print lexbuf
-  | None -> ()
-*)

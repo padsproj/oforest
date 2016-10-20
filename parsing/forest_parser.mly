@@ -1,7 +1,7 @@
-%{ open All_types 
+%{ open Forest_types 
    open Location
-   type forest_token = token
-
+   (*type forest_token = token
+   *)
    let make_loc p1 p2 =
      { loc_start = p1;
        loc_end = p2;
@@ -23,10 +23,6 @@
 %token EQ
 %token BAR
 
-(* F + P *)
-%token <string> STRING
-%token <string> AQUOT
-
 (* S+F *)
 %token LANGB
 %token RANGB
@@ -38,6 +34,8 @@
 %token OPT
 
 (* Forest Specific *)
+%token <string> STRING
+%token <string> AQUOT
 %token DIR
 %token PADS
 %token IS
@@ -49,21 +47,6 @@
 %token URL
 %token AT
 %token BARROW
-
-(* PADS Specific *)
-%token <string> UID
-%token <char> CHAR
-%token <int> INT
-%token PINT
-%token PFLOAT
-%token PSTRING
-%token PLIST
-%token PEOF
-%token PTYPE
-%token PDATATYPE
-%token OF
-%token COLON
-%token STAR
 
 (* Skin Specific *)
 %token PLUS
@@ -83,36 +66,26 @@
 
 (* Forest *)
 
-%type <All_types.forest_node All_types.ast> f_ast f_cons f_path_ast f_bast f_cons_ast f_last
-%type <All_types.pathType> path_typ
-%type <All_types.compType> comp_type
-%type <All_types.predOrGen> p_or_g
-%type <All_types.forest_regex> match_statement
-%type <All_types.gen> gen_statement
-%type <All_types.varname * All_types.forest_node All_types.ast> direntry
-
-(* PADS *)
-    
-%type <All_types.varname * All_types.pads_node All_types.ast> desc
-%type <All_types.pads_node All_types.ast> pads_const pads_ast pads_dtype inter_ast final_ast
-%type <All_types.pads_fixed> pfix
-%type <All_types.precord_entry> rentry
-    
-%type <All_types.varname * All_types.pads_node All_types.ast> named_p variant
+%type <Forest_types.forest_node Forest_types.ast> f_ast f_cons f_path_ast f_bast f_cons_ast f_last
+%type <Forest_types.pathType> path_typ
+%type <Forest_types.compType> comp_type
+%type <Forest_types.predOrGen> p_or_g
+%type <Forest_types.forest_regex> match_statement
+%type <Forest_types.gen> gen_statement
+%type <Forest_types.varname * Forest_types.forest_node Forest_types.ast> direntry
 
 (* Skins *)
     
-%type <All_types.skin_node All_types.ast> s_ast s_semi s_right s_left s_last s_cons
+%type <Forest_types.skin_node Forest_types.ast> s_ast s_semi s_right s_left s_last s_cons
 
 (* Types *)
 
-%type <All_types.t_node All_types.ast> t_ast t_and t_left t_last t_cons
+%type <Forest_types.t_node Forest_types.ast> t_ast t_and t_left t_last t_cons
 
 (* Starts *)
     
-%start <(All_types.varname * All_types.forest_node All_types.ast) list> forest_prog
-%start <(All_types.varname * All_types.pads_node All_types.ast) list> pads_prog
-%start <(All_types.varname * All_types.skin_node All_types.ast) list> skin_prog
+%start <(Forest_types.varname * Forest_types.forest_node Forest_types.ast) list> forest_prog
+%start <(Forest_types.varname * Forest_types.skin_node Forest_types.ast) list> skin_prog
 %%
 
 
@@ -223,85 +196,6 @@ match_statement:
   ;
 
 direntry: separated_pair(ID,IS,f_ast) { $1 }
-
-(* PADS Parsing *)
-
-
-(* Add constructs:
- * Pphone
- * Pzip
- * Ptimestamp
- * Pdate
- * Pip
- *)
-
-(* The program is list of descriptions followed by an End of File *)
-pads_prog: l = nonempty_list(desc); EOF { l };
-
-(* The main type of node in the AST, a PADS description *)
-desc:
-  | PTYPE; x = ID; EQ; o = pads_ast { x,o }
-  | PDATATYPE; x = ID; EQ; o = pads_dtype { x,o }
-
-pads_dtype: option(BAR) ; l = separated_nonempty_list(BAR,variant)
-    { let loc = make_loc $startpos($1) $endpos(l) in
-     mk_ast loc @@ Pdatatype l }
- 
-pads_ast:
- | p1 = inter_ast ; STAR ; p2 = pads_ast
-   { let loc = make_loc $startpos(p1) $endpos(p2) in
-     mk_ast loc @@ Ptuple (p1,p2) }
- | inter_ast { $1 }
-
-inter_ast:
- | l = delimited(LBRACE,separated_nonempty_list(SEMICOLON,rentry),RBRACE)
-   { let loc = make_loc $startpos $endpos in
-     mk_ast loc @@ Precord l }
- | LBRACK; p = named_p ; BAR ; pred = AQUOT ; RBRACK
-   { let loc = make_loc $startpos($1) $endpos($5) in
-     let (x,p) = p in
-     mk_ast loc @@ Ppred (x,p,pred) }   
- | p = inter_ast ; PLIST ; LPAREN; s = pfix ; COMMA ; t = pfix ; RPAREN
-   { let loc = make_loc $startpos(p) $endpos($7) in
-     mk_ast loc @@ Plist (p,s,t) }
- | final_ast { $1 }
-
-     
-final_ast:
- | delimited(LPAREN,pads_ast,RPAREN) {$1}
- | x = ID
-   { let loc = make_loc $startpos $endpos in
-     mk_ast loc @@ Pvar x }
- | pads_const {$1}
-     
-(* The base types as defined by PADS *)
-pads_const:
- | PINT { let loc = make_loc $startpos $endpos in
-           mk_ast loc Pint }
- | PFLOAT { let loc = make_loc $startpos $endpos in
-           mk_ast loc Pfloat }
- | PSTRING ; LPAREN ; x = pfix ; RPAREN 
-   { let loc = make_loc $startpos($1) $endpos($4) in
-    mk_ast loc @@ Pstring x }
- | x = pfix
-   { let loc = make_loc $startpos $endpos in
-     mk_ast loc @@ Pconst x }
-   
-pfix:
- | INT { PFInt $1} 
- | STRING { PFStr $1 }
- | CHAR { PFStr (String.make 1 $1) }
- | AQUOT { PFRE $1 }
- | PEOF { PFEOF }
-
-rentry: 
- | pads_ast { Unnamed $1 }
- | named_p { let (x,p) = $1 in Named(x,p) }
-
-   
-named_p: separated_pair(ID,COLON,pads_ast) { $1 }
-variant: separated_pair(UID,OF,pads_ast) { $1 }
-
 
 (* Skin Parsing *)
 

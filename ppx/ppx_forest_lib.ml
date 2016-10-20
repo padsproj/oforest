@@ -1,7 +1,4 @@
-(* TODO:
-open Ppx_pads
-*)
-open All_types
+open Forest_types
 open Utility
 open Asttypes
 open Parsetree
@@ -273,7 +270,7 @@ and forest_load_gen (e: forest_node ast) (vName : string) : Parsetree.expression
   | Link -> [%expr Forest.load_link ] [@metaloc loc]
   | Var(x) -> exp_make_ident loc (load_name x)
   | Pads(s) -> add_timing
-    [%expr PadsLoader.pads_load_for_forest
+    [%expr PadsInterface.load_for_forest
         [%e exp_make_ident loc (pads_parse_name s)] 
         path ][@metaloc loc]
   | Option(e) ->
@@ -557,7 +554,7 @@ and forest_uninc_load_gen (e: forest_node ast) (vName : string) : Parsetree.expr
   | Link -> [%expr Forest.load_link ] [@metaloc loc]
   | Var(x) -> exp_make_ident loc (load_name x)
   | Pads(s) -> add_timing
-    [%expr PadsLoader.pads_load_for_forest
+    [%expr PadsInterface.load_for_forest
         [%e exp_make_ident loc (pads_parse_name s)] 
         path ][@metaloc loc]
   | Option(e) ->
@@ -883,7 +880,7 @@ and forest_manifest_gen (inside:bool) (e: forest_node ast) (vName : string) : Pa
           let mani = [%e exp_make_ident loc (pads_manifest_name x)] (rep, md.data) in
           let errors = List.map (fun y -> (basename, PadsError y)) mani.pads_man_errors in
           let tmppath = Filename.concat tmpdir basename in
-          let _ = PadsLoader.pads_store mani tmppath in
+          let _ = PadsInterface.pads_store mani tmppath in
           let sfunc ?dirname:(dirname=dirname) ?basename:(basename=basename) () =
             let storepath = Filename.concat dirname basename in
             let _ = if Sys.file_exists storepath then Sys.remove storepath else () in

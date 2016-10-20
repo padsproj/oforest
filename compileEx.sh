@@ -35,7 +35,7 @@ else if (( $# == 2 )) && [ "$2" -eq "4" ];
 then
     $dir/desugar.sh $fullname
 else
-    ocamlfind ocamlopt -o $namenoext.out -package core,forest,forest.ppx,re,unix,str,re.glob -linkpkg $fullname -thread -w -30
+    ocamlfind ocamlopt -o $namenoext.out -package core,pads,pads.ppx,forest,forest.ppx,re,unix,str,re.glob -linkpkg $fullname -thread -w -30
     rm $fullnamenoext.cmx $fullnamenoext.o $fullnamenoext.cmi
 fi;
 fi;

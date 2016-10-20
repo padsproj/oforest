@@ -1,0 +1,10 @@
+# Merlin file for automatically dealing with pkgs
+# Note that it won't work right if forest isn't installed
+PKG forest.ppx compiler-libs.common str
+S parsing
+S ppx
+S lib
+
+B _build/lib
+B _build/parsing
+B _build/ppx

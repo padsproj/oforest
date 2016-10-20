@@ -31,18 +31,18 @@ bank = directory {
 
 |}]
 
-let inc_total_balance (client_prep : client_rep) =
+let inc_total_balance (client : client_rep) =
   let checking_balance =
-    PathMap.fold (fun k v acc -> acc + v) client_prep.checking 0 in
+    PathMap.fold (fun k v acc -> acc + v) client.checking 0 in
   let savings_balance =
-    PathMap.fold (fun k v acc -> acc + v) client_prep.saving 0 in
+    PathMap.fold (fun k v acc -> acc + v) client.savings 0 in
   checking_balance + savings_balance
 
-let total_balance client_rep =
+let total_balance client =
   let checking_balance =
-    PathMap.fold (fun k v acc -> acc + v) client_rep.checking 0 in
+    PathMap.fold (fun k v acc -> acc + v) client.checking 0 in
   let savings_balance =
-    PathMap.fold (fun k v acc -> acc + v) client_rep.savings 0 in
+    PathMap.fold (fun k v acc -> acc + v) client.savings 0 in
   checking_balance + savings_balance
 
 let balance path client =

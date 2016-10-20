@@ -15,29 +15,29 @@ XOCamlbuildExtraArgs: -use-menhir
 Library forest 
   Path:          lib
   BuildTools:    ocamlbuild
-  BuildDepends:  re, core,re.glob,str,threads,ppx_let
+  BuildDepends:   pads, str, re, re.glob, core, threads, ppx_let
   CompiledObject: best
-  Modules:       Forest, Pads, PadsParser, PadsLoader
+  Modules:       Forest, PadsInterface
 
 Library parser
   Path:           parsing
   BuildTools:     ocamlbuild, menhir, ocamllex
   Findlibparent:  forest
   Findlibname:    parser
-  BuildDepends:   forest, ppx_deriving.show, compiler-libs.common # str, core, re
+  BuildDepends:   forest, ppx_deriving.show, compiler-libs.common 
   CompiledObject: best
-  Modules:	   Parser_helper
-  InternalModules: Forest_lexer, All_types, Forest_parser
+  Modules:	   Forest_parser_helper
+  InternalModules: Forest_lexer, Forest_types, Forest_parser
 
 Library ppx
   Path:           ppx
   BuildTools:     ocamlbuild
   Findlibparent:  forest
   Findlibname:    ppx
-  BuildDepends:   re, re.str, forest, forest.parser, ppx_tools.metaquot # core, threads, 
+  BuildDepends:   re, re.str, forest, forest.parser, ppx_tools.metaquot
   CompiledObject: best
   Modules:        Ppx_forest
-  InternalModules: Ppx_forest_lib, Utility, Skins, Ppx_pads_lib
+  InternalModules: Ppx_forest_lib, Utility, Skins
   XMETAEnable:    true
   XMETADescription: Syntax extension for iForest
   XMETARequires:   str re core threads ppx_tools.metaquot
@@ -46,17 +46,6 @@ Library ppx
 Executable ppx_forest
   Path:           ppx
   MainIs:         ppx_forest.ml
-  BuildDepends:   forest, forest.ppx, ppx_tools.metaquot
+  BuildDepends:   forest, forest.ppx, pads.ppx, ppx_tools.metaquot
   CompiledObject: best
 
-#compiler-libs.common - Might need in future
-#ppx_driver 
-
-#Executable test_hello
-#  Build$:       flag(tests)
-#  Install:      false
-#  Path:         examples
-#  Custom:       true
-#  CompiledObject: best
-#  BuildDepends: forest, unix, str
-#  MainIs:       hello.ml

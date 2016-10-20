@@ -20,7 +20,6 @@ let codeToChar str =
 type cLexer =
   | FLex
   | SLex
-  | PLex
       
 (* Stole from OCaml compiler *)
 let char_for_backslash = function
@@ -132,50 +131,6 @@ and skin_read =
   | _   { raise (SyntaxError ("Unexpected character: " ^ Lexing.lexeme lexbuf)) }
   | eof { EOF }
 
-and pads_read =
-  parse
-  | white { pads_read lexbuf }
-  | newline { next_line lexbuf; pads_read lexbuf }
-  | int { INT (int_of_string (Lexing.lexeme lexbuf)) }
-  | "ptype" { PTYPE }
-  | "pdatatype" { PDATATYPE }
-  | "Pint" { PINT }
-  | "Pfloat" { PFLOAT }
-  | "Pstring" { PSTRING }
-  | "Plist" { PLIST }
-  | "EOF" { PEOF }
-  | "of" { OF }
-  | "(*" { read_comment PLex 0 lexbuf }
-  | '"' { read_string (Buffer.create 17) lexbuf }
-  | '$' { read_antiquot (Buffer.create 17) lexbuf }
-
-  (* Stole from OCaml Compiler *)
-  (* note: ''' is a valid character literal (by contrast with the compiler) *)
-  | "'" [^ '\\'] "'"
-    { CHAR(Lexing.lexeme_char lexbuf 1) }
-  | "'" '\\' backslash_escapes "'"
-    { CHAR (Lexing.lexeme_char lexbuf 2 |> char_for_backslash) }
-  | "'" '\\' asccode "'" { CHAR(codeToChar (lexeme lexbuf)) }
-  | "'" '\\' octocode "'" { CHAR(codeToChar (lexeme lexbuf)) }
-  | "'" '\\' hexacode "'" { CHAR(codeToChar (lexeme lexbuf)) }
-
-  | '=' { EQ }
-  | '(' { LPAREN }
-  | ')' { RPAREN }
-  | '{' { LBRACE }
-  | '}' { RBRACE }
-  | '[' { LBRACK }
-  | ']' { RBRACK }
-  | ';' { SEMICOLON }
-  | ',' { COMMA }
-  | '|' { BAR }
-  | ':' { COLON }
-  | '*' { STAR }
-  | lid  { ID (Lexing.lexeme lexbuf) }
-  | uid  { UID (Lexing.lexeme lexbuf) }
-  | _   { raise (SyntaxError ("Unexpected character: " ^ Lexing.lexeme lexbuf)) }
-  | eof { EOF }
-
 and read_comment from n =
   parse
   | newline { next_line lexbuf; read_comment from n lexbuf }
@@ -184,7 +139,6 @@ and read_comment from n =
             match from with
             | FLex -> forest_read lexbuf 
             | SLex -> skin_read lexbuf
-            | PLex -> pads_read lexbuf
            else read_comment from (n-1) lexbuf }
   | [ ^ '(' '*' ')' ] { read_comment from n lexbuf }
   | _    { read_comment from n lexbuf }

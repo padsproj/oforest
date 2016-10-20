@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 98c062d6adf9c9e4f66a5ae8e2fb1aca)
+# DO NOT EDIT (digest: d3e2a684f1f6ec06364566476b752083)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -17,6 +17,7 @@ true: annot, bin_annot
 # Library forest
 "lib/forest.cmxs": use_forest
 <lib/*.ml{,i,y}>: package(core)
+<lib/*.ml{,i,y}>: package(pads)
 <lib/*.ml{,i,y}>: package(ppx_let)
 <lib/*.ml{,i,y}>: package(re)
 <lib/*.ml{,i,y}>: package(re.glob)
@@ -26,6 +27,7 @@ true: annot, bin_annot
 "parsing/parser.cmxs": use_parser
 <parsing/*.ml{,i,y}>: package(compiler-libs.common)
 <parsing/*.ml{,i,y}>: package(core)
+<parsing/*.ml{,i,y}>: package(pads)
 <parsing/*.ml{,i,y}>: package(ppx_deriving.show)
 <parsing/*.ml{,i,y}>: package(ppx_let)
 <parsing/*.ml{,i,y}>: package(re)
@@ -38,6 +40,8 @@ true: annot, bin_annot
 # Executable ppx_forest
 <ppx/ppx_forest.{native,byte}>: package(compiler-libs.common)
 <ppx/ppx_forest.{native,byte}>: package(core)
+<ppx/ppx_forest.{native,byte}>: package(pads)
+<ppx/ppx_forest.{native,byte}>: package(pads.ppx)
 <ppx/ppx_forest.{native,byte}>: package(ppx_deriving.show)
 <ppx/ppx_forest.{native,byte}>: package(ppx_let)
 <ppx/ppx_forest.{native,byte}>: package(ppx_tools.metaquot)
@@ -51,6 +55,8 @@ true: annot, bin_annot
 <ppx/ppx_forest.{native,byte}>: use_ppx
 <ppx/*.ml{,i,y}>: package(compiler-libs.common)
 <ppx/*.ml{,i,y}>: package(core)
+<ppx/*.ml{,i,y}>: package(pads)
+<ppx/*.ml{,i,y}>: package(pads.ppx)
 <ppx/*.ml{,i,y}>: package(ppx_deriving.show)
 <ppx/*.ml{,i,y}>: package(ppx_let)
 <ppx/*.ml{,i,y}>: package(ppx_tools.metaquot)

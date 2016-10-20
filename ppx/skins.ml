@@ -1,4 +1,4 @@
-open All_types
+open Forest_types
 open Utility
 
 (* Helper functions *)

@@ -6,8 +6,11 @@ plus a few packages.
 You should be able to get everything you need by running:
 
 > opam update
+
 > opam switch 4.03.0
+
 > eval $(opam config env)
+
 > opam install ocamlfind oasis utop menhir core
 
 To build:
