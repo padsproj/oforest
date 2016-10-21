@@ -69,5 +69,4 @@ true: annot, bin_annot
 <ppx/*.ml{,i,y}>: use_parser
 <ppx/*.ml{,i,y}>: use_ppx
 # OASIS_STOP
-<syntax/*.ml>: syntax_camlp4o, pkg_camlp4
 true: annot, bin_annot, debug, principal
