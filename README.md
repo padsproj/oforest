@@ -13,8 +13,8 @@ the specification and instead need to be forced explicitly. This makes
 it much easier to write streaming computations and deal with large
 amounts of data.
 
-## Installation
 <a name="install"/>
+## Installation
 
 OCaml Forest requires OCaml 4.03.0 or greater, [OCaml Pads][opads],
 and a few OPAM packages.
@@ -23,6 +23,7 @@ You can get all the prerequisites by following these steps:
 
 1. [Install OPAM][opamInstall]
 2. Run the following commands in your shell:
+
 > opam update
 
 > opam switch 4.03.0
@@ -46,8 +47,8 @@ If you get errors, try
 
 > ocamlfind remove forest
 
-## Usage
 <a name="usage"/>
+## Usage
 
 See the [wiki][wikiEx] for information on how to compile and run the
 examples and how they work.
@@ -80,8 +81,8 @@ See the [wiki][wikiGrammar] for the iForest grammar.
 [iForest]:
 http://www.cs.cornell.edu/~dilorenzo/docs/incremental-forest.pdf
 "Incremental Forest Paper"
-[opamInstall]: https://opam.ocaml.org/doc/Install.html "How to install
-OPAM"
+[opamInstall]: https://opam.ocaml.org/doc/Install.html
+"How to install OPAM"
 [wikiEx]:
 https://github.com/padsproj/oforest/wiki/Getting-Started-with-iForest#examples
 "Incremental Forest Examples"
