@@ -2,14 +2,10 @@
 Use Makefile in examples directory
 
 Desugar:
-   make simpleD
+    ./desugar.sh simple/simple.ml
 
 Compile:
-   make simpleC
-
-Run:
-   make simpleR
-
+   make simple
 *)
 
 open Forest

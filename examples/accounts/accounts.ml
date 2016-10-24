@@ -1,3 +1,13 @@
+(* 
+Use Makefile in examples directory
+
+Desugar:
+   ./desugar.sh accounts/accounts.ml
+
+Compile:
+   make accounts
+*)
+
 open Pads
 open Forest
 

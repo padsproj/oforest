@@ -2,14 +2,10 @@
 Use Makefile in examples directory
 
 Desugar:
-   make paperExD
+    ./desugar.sh paperEx/paperEx.ml
 
 Compile:
-   make paperExC
-
-Run:
-   make paperExR
-
+   make paperEx
 *)
 
 open Forest

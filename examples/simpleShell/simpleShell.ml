@@ -1,7 +1,12 @@
-(* Ideas: 
-- ???
-*)
+(* 
+Use Makefile in examples directory
 
+Desugar:
+    ./desugar.sh simpleShell/simpleShell.ml
+
+Compile:
+   make simpleShell
+*)
 [%%skin {|
   uniSkin = [<>] + map(uniSkin)
   
@@ -107,10 +112,10 @@ let main =
 (* Unincremental stuff *)
 let exDir =
   let cwd =  Sys.getcwd () in
-  let d1 = Filename.concat cwd "examples/demo/dir" in
+  let d1 = Filename.concat cwd "examples/simpleShell/dir" in
   if Sys.file_exists d1
   then d1
-  else Filename.concat cwd "demo/dir"
+  else Filename.concat cwd "simpleShell/dir"
     
 let ls_uninc md options =
   let md_list = List.concat [md.data.asc_md.data;md.data.bin_md.data;md.data.sym_md.data] in

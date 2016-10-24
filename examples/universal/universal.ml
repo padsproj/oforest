@@ -1,15 +1,11 @@
 (* 
-Should be executed from main oforest directory
+Use Makefile in examples directory
 
 Desugar:
-  ./desugar.sh examples/featTesting/test.ml
+    ./desugar.sh universal/universal.ml
 
 Compile:
-   ./compileEx.sh examples/featTesting/test.ml
-
-Run:
-   ./test
-
+   make universal
 *)
 
 module CostMon = Forest.CostNameMon
@@ -22,10 +18,9 @@ module CostMon = Forest.CostNameMon
                         }
 |}]
 
-(* Currently Examples directory 
- * Sadly, most directories seem to get 'too many open files' error (EMFILE) when doing the unincremental version...*)
+(* Currently Examples directory *)
 
-let directory = Printf.sprintf "%s/.." (Sys.getcwd ())
+let directory = Sys.getcwd ()
 
 let rec trawl_univI cur nMax =
   let rec trawl_internal cur n =

@@ -2,14 +2,10 @@
 Use Makefile in examples directory
 
 Desugar:
-   make oopslaD
+   ./desugar.sh oopsla/oopsla.ml
 
 Compile:
-   make oopslaC
-
-Run:
-   make oopslaR
-
+   make oopsla
 *)
 
 open Pads

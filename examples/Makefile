@@ -1,30 +1,29 @@
 SHELL = /bin/bash
 
-EXAMPLES = oopsla simple paperEx accounts universal dircomp
+# Running make [example] should create an executable called [example].native
+# The SWAT example builds in its own directory.
+
+EXAMPLES = oopsla simple paperEx universal simpleShel accounts
 
 .SUFFIXES: .ml .native .byte
 
+.PHONY : clean all swat $(EXAMPLES)
 
-.PHONY : clean all oopsla simple paperEx accounts universal dircomp
+all: $(EXAMPLES)
 
-all: oopsla simple paperEx accounts universal
+swat:
+	cd swat; make
 
+$(EXAMPLES) : % : %.native
 
-%.native: 
-	ocamlbuild -use-ocamlfind -I $(subst .native,,$@) $@
+.SECONDEXPANSION:
+%.native: $$*/$$*.ml
+	ocamlbuild -use-ocamlfind -I $* $@
+	touch $@
 
-%.byte: 
-	ocamlbuild -use-ocamlfind -I $(subst .byte,,$@) $@
-
-
-
-oopsla: oopsla.native
-simple: simple.native
-paperEx: paperEx.native
-accounts: accounts.native
-universal: universal.native
-
-dircomp: dircomp.native
+%.byte: $$*/$$*.ml
+	ocamlbuild -use-ocamlfind -I $* $@
+	touch $@
 
 clean:
 	ocamlbuild -clean
