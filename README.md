@@ -24,28 +24,28 @@ You can get all the prerequisites by following these steps:
 1. [Install OPAM][opamInstall]
 2. Run the following commands in your shell:
 
-> opam update
+   > opam update
 
-> opam switch 4.03.0
+   > opam switch 4.03.0
 
-> eval $(opam config env)
+   > eval $(opam config env)
 
-> opam install ocamlfind oasis utop menhir core
+   > opam install ocamlfind oasis utop menhir core
 
 3. [Install OCaml Pads][opadsInstall]
 4. In the root of this repository, run:
 
-To build:
+   To build:
 
-> make && make install
+   > make && make install
 
-To rebuild:
+   To rebuild:
 
-> make && make reinstall
+   > make && make reinstall
 
-If you get errors, try
+   If you get errors, try
 
-> ocamlfind remove forest
+   > ocamlfind remove forest
 
 <a name="usage"/>
 ## Usage
