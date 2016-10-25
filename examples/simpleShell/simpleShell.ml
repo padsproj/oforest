@@ -101,7 +101,15 @@ let rec main_loop cdir ((rep,md) : (universal_inc_rep * universal_inc_md)) =
     
 let main =
   let _ = Printf.printf "This shell recognizes ls,cd, and exit commands\n%!" in
-  let cdir = Sys.getcwd () in
+  let cdir = if Array.length Sys.argv > 1
+    then
+      let cdir = Sys.argv.(1) in
+      if Filename.is_relative cdir
+      then Filename.concat (Sys.getcwd ()) cdir
+      else cdir
+    else Sys.getcwd ()
+  in
+  let _ =  Sys.chdir cdir in
   run (
     universal_inc_new cdir >>=
       load >>= main_loop cdir
@@ -109,7 +117,7 @@ let main =
 
 
     
-(* Unincremental stuff *)
+(* Unincremental stuff, which is unused
 let exDir =
   let cwd =  Sys.getcwd () in
   let d1 = Filename.concat cwd "examples/simpleShell/dir" in
@@ -133,3 +141,4 @@ let ls_uninc md options =
 let main_uninc () =
   let (rep,md) = universal_load exDir in
   ls_uninc md "-l"
+ *)

@@ -1,10 +1,11 @@
-open Unix
+(*
 open Filename
 open Sys
 open Pads
 open Core
 open Core_kernel
-
+*)
+open Unix
 
 
 (* Rest *)
@@ -29,30 +30,30 @@ module OrderedPath = String
 module PathMap = Map.Make(OrderedPath)
 
 
-type manifest_errors = 
+type manifest_error = 
 | MD_Missing_Info
 | Opt_MD_Rep_Inconsistency
 | Dir_Filename_Overlap
 | PredicateFail
-| PadsError of pads_manifest_errors
+| PadsError of Pads.pads_manifest_error
 
-let err_to_string err =
+let err_to_string (err : manifest_error) : string =
   match err with
   | MD_Missing_Info -> "Metadata is missing the info 'component'"
   | Opt_MD_Rep_Inconsistency -> "Either the metadata or the rep (but not both) of an option is None"
   | Dir_Filename_Overlap -> "The directory path indicated in the metadata is currently occupied by a file"
   | PredicateFail -> "The predicate failed w.r.t. the chosen rep and md."
-  | PadsError (RegexMatchError r) -> Printf.sprintf "Regex %s failed to match" r
-  | PadsError( ListLengthError) -> "List length failed to match"
-  | PadsError(VariantMismatchError) -> "Variant types for rep and md failed to match."
-  | PadsError(ListLengthMismatchError) -> "List length for rep and md failed to match."
+  | PadsError (Pads.RegexMatchError r) -> Printf.sprintf "Regex %s failed to match" r
+  | PadsError( Pads.ListLengthError) -> "List length failed to match"
+  | PadsError(Pads.VariantMismatchError) -> "Variant types for rep and md failed to match."
+  | PadsError(Pads.ListLengthMismatchError) -> "List length for rep and md failed to match."
 
 type file_info = 
     { full_path : filepath; 
       owner : int;
       group : int;
       size : int;
-      permissions : file_perm;
+      permissions : Unix.file_perm;
       kind : fKind;
       access_time : float;
       modify_time : float;
@@ -63,48 +64,16 @@ type 'a forest_md =
   { num_errors : int;
     error_msg : string list;
     info : file_info option;
-    load_time : Time.Span.t;
+    load_time : Core.Time.Span.t;
     data : 'a;
   }
 
 type manifest = 
-  { errors : (filepath * manifest_errors) list;
+  { errors : (filepath * manifest_error) list;
     storeFunc : ?dirname:filepath -> ?basename:filepath -> unit -> unit;
     tmppath : filepath }
 
 (* Implementations *)
-
-
-let store (mani : manifest) : unit = 
-  let _ = mani.storeFunc () in
-  try
-    Unix.rmdir mani.tmppath
-  with _ -> ()
-    
-let store_at (mani : manifest) (path: filepath) : unit =  
-  let _ = mani.storeFunc ~dirname:(Filename.dirname path) ~basename:(Filename.basename path) () in
-  try
-    Unix.rmdir mani.tmppath
-  with _ -> ()
-
-let get_kind (finfo : file_info) : fKind = finfo.kind
-
-let parse_kind (stats : Unix.stats) (path : filepath) : fKind = match stats.st_kind with
-    | S_DIR -> DirectoryK
-    | S_LNK -> SymK
-    | S_REG -> 
-      let maxBytes = 1024 in
-      let cmd = Printf.sprintf "file -i -L %s" path in
-      let ch = Unix.open_process_in cmd in
-      let fd = descr_of_in_channel ch in
-      let buff = Bytes.make maxBytes '0' in
-      let bRead = Unix.read fd buff 0 maxBytes in
-      let str = String.sub (String.trim (Bytes.sub_string buff 0 bRead)) (bRead-6) 5 in
-      let _ = Unix.close_process_in ch in
-      if str = "ascii"
-      then AsciiK
-      else BinaryK
-    | _ -> UnknownK
 
 let print_mani_errors (mani: manifest) =
   List.iter (fun (path,err) -> 
@@ -116,28 +85,46 @@ let print_md_errors (md: 'a forest_md) =
     Printf.printf "Error: %s\n" err
   ) md.error_msg
 
-let regexp_from_string : string -> forest_regexp = Str.regexp
+let regexp_from_string : forest_regexp_str -> forest_regexp = Str.regexp
 let regexp_match (reg : forest_regexp) (str : string) : bool =
   try 
     let _ = Str.search_forward reg str 0 in
     true
   with Not_found -> false
 
-let regexp_match_from_string (str : forest_regexp_str) : string -> bool = regexp_match (Str.regexp str)
+let regexp_match_from_string (str : forest_regexp_str) : string -> bool = regexp_match @@ regexp_from_string str
 
-let glob_from_string : string -> forest_glob = Re_glob.glob
+let glob_from_string : forest_regexp_str -> forest_glob = Re_glob.glob
 let glob_match (reg : forest_glob) (str : string) : bool =
   try
     let _ =  Re.exec (Re.compile reg) str in
     true
   with Not_found -> false
 
-let glob_match_from_string (str : forest_regexp_str) : string -> bool = glob_match (glob_from_string str)
+let glob_match_from_string (str : forest_regexp_str) : string -> bool = glob_match @@ glob_from_string str
 
+let parse_kind (stats : Unix.stats) (path : filepath) : fKind = match stats.st_kind with
+    | Unix.S_DIR -> DirectoryK
+    | Unix.S_LNK -> SymK
+    | Unix.S_REG -> 
+      let maxBytes = 1024 in
+      let cmd = Printf.sprintf "file -i -L %s" path in
+      let ch = Unix.open_process_in cmd in
+      let fd = Unix.descr_of_in_channel ch in
+      let buff = Bytes.make maxBytes '0' in
+      let bRead = Unix.read fd buff 0 maxBytes in
+      let str = String.sub (String.trim (Bytes.sub_string buff 0 bRead)) (bRead-6) 5 in
+      let _ = Unix.close_process_in ch in
+      if str = "ascii"
+      then AsciiK
+      else BinaryK
+    | _ -> UnknownK
+       
 let get_md_info (path : filepath) : file_info option =
   try 
-    let stats = Unix.lstat path in (*TODO(Richard): Maybe we want Unix.stat here?*)
-    Some { full_path = path; (* TODO(jnf): fix this *)
+    let stats = Unix.lstat path in
+    let fullpath = if Filename.is_relative path then (Filename.concat (Sys.getcwd ()) path) else path in
+    Some { full_path = fullpath;
            owner = stats.st_uid;
            group = stats.st_gid;
            size = stats.st_size;
@@ -147,12 +134,11 @@ let get_md_info (path : filepath) : file_info option =
            modify_time = stats.st_mtime;
            change_time = stats.st_ctime } 
   with Unix_error(ENOENT,_,_) -> None
-  (* TODO: Fails miserably if there are other errors, which is nice for 
-   * our debugging but shouldn't be in final system *)
 
 let empty_info (path : filepath) : file_info =
   let time = Unix.time () in
-    { full_path = path;
+  let fullpath = if Filename.is_relative path then (Filename.concat (Sys.getcwd ()) path) else path in
+    { full_path = fullpath;
       owner = getuid ();
       group = getgid ();
       size = 0;
@@ -167,10 +153,14 @@ let get_att_info (path : filepath) : file_info =
   match get_md_info path with
   | Some x -> x
   | None -> empty_info path
-    
+
+
+let get_kind (finfo : file_info) : fKind = finfo.kind
+     
 let no_time = 
-  let curr = Time.now () in
-  Time.abs_diff curr curr
+  let curr = Core.Time.now () in
+  Core.Time.abs_diff curr curr
+
 
 let base_md (data : 'a) (path : filepath) : 'a forest_md =
   { num_errors = 0;
@@ -190,15 +180,28 @@ let empty_md (data : 'a) (path : filepath) : 'a forest_md =
 
 let unit_md : (filepath -> unit forest_md) = base_md ()
 
-
-let load_link (path:string) : string * unit forest_md =
-  let currTime = Time.now () in
+(* Loadings and Storing primitives *)
+    
+let store (mani : manifest) : unit = 
+  let _ = mani.storeFunc () in
+  try
+    Unix.rmdir mani.tmppath
+  with _ -> ()
+    
+let store_at (mani : manifest) (path: filepath) : unit =  
+  let _ = mani.storeFunc ~dirname:(Filename.dirname path) ~basename:(Filename.basename path) () in
+  try
+    Unix.rmdir mani.tmppath
+  with _ -> ()
+    
+let load_link (path: filepath) : filepath * unit forest_md =
+  let currTime = Core.Time.now () in
   let errrep = "" in
   let errmd = 
       { num_errors = 1;
         error_msg = [];
         info = None;
-        load_time = Time.abs_diff currTime (Time.now ());
+        load_time = Core.Time.abs_diff currTime (Core.Time.now ());
         data = () } in 
   try 
     let stats = Unix.lstat path in
@@ -210,7 +213,7 @@ let load_link (path:string) : string * unit forest_md =
         num_errors = 0;
         error_msg = [];
         info = info;
-        load_time = Time.abs_diff currTime (Time.now ());
+        load_time = Core.Time.abs_diff currTime (Core.Time.now ());
         data = ()
       } in
       (rep, md)
@@ -220,38 +223,38 @@ let load_link (path:string) : string * unit forest_md =
        {errmd with 
          info = info;
          error_msg = [Printf.sprintf "%s: Not an symlink" path];
-         load_time = Time.abs_diff currTime (Time.now ())})
+         load_time = Core.Time.abs_diff currTime (Core.Time.now ())})
   with 
   | Unix_error (e,_,_) ->
       (errrep,
        {errmd with 
          error_msg =  [Printf.sprintf "Unix_error: %s" (Unix.error_message e)];
-         load_time = Time.abs_diff currTime (Time.now ())})
+         load_time = Core.Time.abs_diff currTime (Core.Time.now ())})
   | _ ->
       (errrep,
        {errmd with 
          error_msg =  [Printf.sprintf "%s: Unknown Error" path];
-         load_time = Time.abs_diff currTime (Time.now ())})
+         load_time = Core.Time.abs_diff currTime (Core.Time.now ())})
 
 let load_file (path:string) : string * unit forest_md =
-  let currTime = Time.now () in
+  let currTime = Core.Time.now () in
   let errrep = "" in
   let errmd = 
       { num_errors = 1;
         error_msg = [];
         info = None;
-        load_time = Time.abs_diff currTime (Time.now ());
+        load_time = Core.Time.abs_diff currTime (Core.Time.now ());
         data = () } in 
   if not (Sys.file_exists path) then 
     (errrep,
      {errmd with 
        error_msg = [Printf.sprintf "%s: no such file" path];
-       load_time = Time.abs_diff currTime (Time.now ())})
+       load_time = Core.Time.abs_diff currTime (Core.Time.now ())})
   else if Sys.is_directory path then
     (errrep,
      {errmd with 
        error_msg = [Printf.sprintf "%s: is a directory, expecting file" path];
-       load_time = Time.abs_diff currTime (Time.now ())})
+       load_time = Core.Time.abs_diff currTime (Core.Time.now ())})
   else 
     try
       let ch = open_in path in
@@ -268,32 +271,21 @@ let load_file (path:string) : string * unit forest_md =
         close_in ch;
         let rep = Buffer.contents buf in 
         let _ = close_in ch in 
-      (* Core function would be great except that it adds a newline to the end :(
-      let rep = Core.Std.In_channel.read_all path in *)
       let md = { num_errors = 0;
                  error_msg = [];
                  info =  get_md_info path;
-                 load_time = Time.abs_diff currTime (Time.now ());
+                 load_time = Core.Time.abs_diff currTime (Core.Time.now ());
                  data = () } in 
       (rep,md)
     with Sys_error s ->
       (errrep,
        {errmd with 
          error_msg =  [Printf.sprintf "Sys_error: %s" s];
-         load_time = Time.abs_diff currTime (Time.now ())})
+         load_time = Core.Time.abs_diff currTime (Core.Time.now ())})
         
 
-let store_file ((rep,md) : (string * unit forest_md)) (path:string) : unit = 
-  try 
-    let ch = open_out path in 
-    output_string ch rep;
-    close_out ch
-  with _ ->
-    () (* TODO: Should maybe indicate some failure here? *)
 
-(* TODO : Need to do checking of invariants (predicates, for example).
- * This implementation is rather naive *)
-let store_link ((rep, md) : (string * unit forest_md)) (path:string) : unit =
+let store_link ((rep, md) : (filepath * unit forest_md)) (path:string) : unit =
   try
     Unix.symlink rep path
   with _ ->
@@ -302,16 +294,19 @@ let store_link ((rep, md) : (string * unit forest_md)) (path:string) : unit =
       | S_LNK -> 
          Unix.unlink path;
         Unix.symlink rep path
-      | _ -> () (* TODO: Need to indicate failure here *)
+      | _ -> () 
     with _ ->
-      () (* TODO: Need to indicate failure here *)
+      ()
 
-let get_file_name (path : string) : string =
-  try
-    let index = String.rindex path '/' + 1 in
-    String.sub path index (String.length path - index)
-  with Not_found -> path
 
+let store_file ((rep,md) : (string * unit forest_md)) (path:string) : unit = 
+  try 
+    let ch = open_out path in 
+    output_string ch rep;
+    close_out ch
+  with _ ->
+    () 
+      
 (* Costs *)
 
 
@@ -350,12 +345,12 @@ module CostSizeMon : CostMon with type cost = int = struct
 end
 
 (* Example from paper: Total load time *)
-module CostTimeMon : CostMon with type cost = Time.Span.t = struct
-  type cost = Time.Span.t
+module CostTimeMon : CostMon with type cost = Core.Time.Span.t = struct
+  type cost = Core.Time.Span.t
   let get_time (_,m) = m.load_time
   let add_times t1 t2 =
-    let now = Time.now () in
-    Time.abs_diff (Time.add (Time.add now t1) t2) now
+    let now = Core.Time.now () in
+    Core.Time.abs_diff (Core.Time.add (Core.Time.add now t1) t2) now
   let cost_op = add_times
   let cost_id = no_time
   let cost_file = get_time
@@ -397,7 +392,7 @@ module type CursorMonad = sig
   type cost
   type 'a t = cost -> ('a * cost)
   include CostMon with type cost := cost
-  include Monad.S with type 'a t := 'a t 
+  include Core_kernel.Monad.S with type 'a t := 'a t 
   val run : ('a t -> ('a * cost))
   val get_cost : ('a t -> cost t)
 end
@@ -405,7 +400,7 @@ end
 module CursorMonad (M : CostMon) : CursorMonad with type cost = M.cost = struct
   include M
   type 'a t = cost -> ('a * cost)
-  include Monad.Make (struct
+  include Core_kernel.Monad.Make (struct
     type nonrec 'a t = 'a t
     let bind m f = 
       fun c ->

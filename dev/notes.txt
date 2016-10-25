@@ -48,6 +48,20 @@ Oasis file:
 #ppx_driver 
 
 Functionality:
+Forest lib:
+- get_md_info
+-- Errors
+  (* TODO: Fails miserably if there are other errors, which is nice for 
+   * our debugging but shouldn't be in final system *)
+- load_file
+-- Way to read in the data
+   (* Core function would be great except that it adds a newline to the end :(
+   let rep = Core.Std.In_channel.read_all path in *)
+
+- store_x
+-- We don't indicate failure in anyway. Not clear if we should be.
+-- Maybe we should also switch to core functions.
+
 Add back when you want to be able to generate printable description
 (*
 let forest_print_desc ?name:(name="forest_desc") (e : exp) : string =

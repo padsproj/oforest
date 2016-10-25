@@ -3,7 +3,7 @@ SHELL = /bin/bash
 # Running make [example] should create an executable called [example].native
 # The SWAT example builds in its own directory.
 
-EXAMPLES = oopsla simple paperEx universal simpleShel accounts
+EXAMPLES = oopsla simple paperEx universal simpleShell accounts
 
 .SUFFIXES: .ml .native .byte
 
