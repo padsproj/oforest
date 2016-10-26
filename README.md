@@ -33,7 +33,8 @@ You can get all the prerequisites by following these steps:
    > opam install ocamlfind oasis utop menhir core
 
 3. [Install OCaml Pads][opadsInstall]
-4. In the root of this repository, run:
+4. Clone this repository
+5. In the root of the clone, run:
 
    To build:
 
