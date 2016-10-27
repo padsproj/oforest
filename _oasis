@@ -19,22 +19,22 @@ Library forest
   CompiledObject: best
   Modules:       Forest, PadsInterface
 
-Library parser
+Library forest_parser
   Path:           parsing
   BuildTools:     ocamlbuild, menhir, ocamllex
   Findlibparent:  forest
-  Findlibname:    parser
+  Findlibname:    forest_parser
   BuildDepends:   forest, ppx_deriving.show, compiler-libs.common 
   CompiledObject: best
-  Modules:	  Forest_parser_helper
-  InternalModules: Forest_lexer, Forest_parser, Forest_types
+  Modules:	  Forest_parser_helper, Forest_types
+  InternalModules: Forest_lexer, Forest_parser
 
-Library ppx
+Library forest_ppx
   Path:           ppx
   BuildTools:     ocamlbuild
   Findlibparent:  forest
-  Findlibname:    ppx
-  BuildDepends:   re, re.str, forest.parser, forest, ppx_tools.metaquot
+  Findlibname:    forest_ppx
+  BuildDepends:   re, re.str, forest.forest_parser, forest, ppx_tools.metaquot
   CompiledObject: best
   Modules:        Ppx_forest
   InternalModules: Ppx_forest_lib, Utility, Skins
@@ -46,6 +46,6 @@ Library ppx
 Executable ppx_forest
   Path:           ppx
   MainIs:         ppx_forest.ml
-  BuildDepends:   forest, forest.parser, forest.ppx, pads.ppx, ppx_tools.metaquot
+  BuildDepends:   forest, forest.forest_parser, forest.forest_ppx, pads.ppx, ppx_tools.metaquot
   CompiledObject: best
 
