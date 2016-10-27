@@ -5,14 +5,24 @@ let pp_loc = Location.print_loc
 type filepath = string [@@deriving show]
 type varname = string [@@deriving show]
 type aquot = string [@@deriving show]
+type forest_regexp_str = string [@@deriving show]
+
+type fPayload =
+  | PNone 
+  | PVList of varname list 
+  | PRec [@@deriving show]
+
+type 'a ast =
+  { node : 'a;
+    payload : fPayload;
+    loc : loc;
+  } [@@deriving show]
+    
   
 type pathType =
 | Constant of loc * filepath
 | Variable of loc * varname
 | OC_Path of loc * aquot [@@deriving show]
-
-
-type forest_regexp_str = string [@@deriving show]
 
 type forest_regex =
 | Glob of loc * forest_regexp_str
@@ -30,17 +40,6 @@ type compType =
 | Map
 | List [@@deriving show]
 
-type fPayload =
-  | PNone 
-  | PVList of varname list 
-  | PRec [@@deriving show]
-
-type 'a ast =
-  { node : 'a;
-    payload : fPayload;
-    loc : loc;
-  } [@@deriving show]
-    
 type t_node =  
   | TTop
   | TBot 

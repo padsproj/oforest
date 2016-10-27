@@ -2,12 +2,12 @@
 
 ## What is OCaml Forest?
 
-OCaml Forest is an OCaml implementation of [Forest][forestproj]. It is
-a data-description language embedded in OCaml using PPX extension
-points. Forest can be used to easily generate safe load and store
-functions for specified data.
+OCaml Forest is a data-description language embedded in OCaml using PPX
+extension points. It can be used to easily generate safe load and store
+functions for specified data.  OCaml Forest is an OCaml implementation of
+[Forest][forestproj].
 
-It is extended to be [incremental][iForest] allowing programmers to
+OCaml Forest is extended to be [incremental][iForest] allowing programmers to
 delay subspecifications that should not be loaded with the rest of
 the specification and instead need to be forced explicitly. This makes
 it much easier to write streaming computations and deal with large
@@ -26,6 +26,8 @@ You can get all the prerequisites by following these steps:
 
    > opam update
 
+   > opam upgrade
+
    > opam switch 4.03.0
 
    > eval $(opam config env)
@@ -33,7 +35,7 @@ You can get all the prerequisites by following these steps:
    > opam install ocamlfind oasis utop menhir core
 
 3. [Install OCaml Pads][opadsInstall]
-4. Clone this repository
+4. Clone this repository (not into the OCaml Pads clone)
 5. In the root of the clone, run:
 
    To build:
@@ -85,8 +87,8 @@ http://www.cs.cornell.edu/~dilorenzo/docs/incremental-forest.pdf
 [opamInstall]: https://opam.ocaml.org/doc/Install.html
 "How to install OPAM"
 [wikiEx]:
-https://github.com/padsproj/oforest/wiki/Getting-Started-with-iForest#examples
+https://github.com/padsproj/oforest/wiki/Getting-Started-with-Incremental-Forest#examples
 "Incremental Forest Examples"
 [wikiGrammar]:
-https://github.com/padsproj/oforest/wiki/Getting-Started-with-iForest#grammar
+https://github.com/padsproj/oforest/wiki/Getting-Started-with-Incremental-Forest#grammar
 "Incremental Forest Grammar"

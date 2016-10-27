@@ -8,7 +8,7 @@ open Ast_helper
 
 let init loc = 
   let cursortype = [%type: (unit -> ('a * 'b * CursorMonad.cost)) * (('a * 'b) -> manifest) ][@metaloc loc] in
-  (* Need's to return a costset -> ('b,costset) *)
+  (* Needs to return a costset -> ('b,costset) *)
   let load_cur = [%expr let (loadf,_) = cur in 
                         fun c -> let (r,m,nc) = loadf () in
                                   ((r,m),CursorMonad.cost_op c nc)
@@ -68,7 +68,7 @@ let rec forest_rep_gen (e: forest_node ast) : (type_declaration list * core_type
         let fieldi = typ_make_field loc labeli typi in
         (decli@decls, fieldi::fields)) dlist ([],[])
     in
-    let name = freshF () in 
+    let name = fresh () in 
     let recType = typ_make_type_decl loc ~kind:(Ptype_record fields) name in
     (decls @ [recType],  typ_make_constr loc name)
   | SkinApp(_,_) -> raise_loc_err loc "forest_rep_gen: Skin applications should not exist here."
@@ -104,7 +104,7 @@ and forest_md_gen (e: forest_node ast) : (type_declaration list * core_type) =
         let fieldi = typ_make_field loc (md_name labeli) typi in
         (decli@decls, fieldi::fields)) dlist ([],[])
     in
-    let name = freshF () in 
+    let name = fresh () in 
     let recType = typ_make_type_decl loc ~kind:(Ptype_record fields) name in
     (decls @ [recType], [%type: [%t typ_make_constr loc name] Forest.forest_md ][@metaloc loc])
      
@@ -378,7 +378,6 @@ and forest_load_gen (e: forest_node ast) (vName : string) : Parsetree.expression
               (* Are there 0, 1, or more dependent variables? *)
               match depVars with
               | [] -> raise_loc_err loc "Comprehension guards must relate to some generated variable" 
-                      (*TODO: Not sure if this is the right thing to do *)
               | id :: [] ->
                  let pListTuple = pat_make_var loc (list_name id) in
                  let emptyAccTuple =  [%expr []][@metaloc loc] in
@@ -480,8 +479,9 @@ and forest_load_gen (e: forest_node ast) (vName : string) : Parsetree.expression
       (if fListBool
        then [%expr let fileList = Array.to_list (Sys.readdir path) in [%e  mid_exp]][@metaloc loc]
        else mid_exp)
-  | Url(e) -> add_timing 
-     [%expr (* Note that it assumes you're getting a directory if it's more than 1 file *)
+  | Url(e) -> add_timing
+     (* Note that it assumes you're getting a directory if it's more than 1 file *)
+     [%expr 
       let tmpdir = Filename.temp_file "forest-" "" in
       let _ = Sys.remove tmpdir in
       let _ = Unix.mkdir tmpdir 0o770 in
@@ -644,7 +644,6 @@ and forest_uninc_load_gen (e: forest_node ast) (vName : string) : Parsetree.expr
               (* Are there 0, 1, or more dependent variables? *)
               match depVars with
               | [] -> raise_loc_err loc "Comprehension guards must relate to some generated variable" 
-                      (*TODO: Not sure if this is the right thing to do *)
               | id :: [] ->
                  let pListTuple = pat_make_var loc (list_name id) in
                  let emptyAccTuple =  [%expr []][@metaloc loc] in
@@ -753,7 +752,7 @@ and forest_uninc_load_gen (e: forest_node ast) (vName : string) : Parsetree.expr
       let _ = Unix.mkdir tmpdir 0o770 in
       let errCode = Sys.command ("wget -P " ^ tmpdir ^ " " ^ path) in
       let fNames = Array.to_list (Sys.readdir tmpdir) in
-      let path = if List.length fNames > 1 then tmpdir else Filename.concat tmpdir (List.hd fNames) in (*TODO: What if it fails? *)
+      let path = if List.length fNames > 1 then tmpdir else Filename.concat tmpdir (List.hd fNames) in
       let (r,md) = [%e forest_uninc_load_gen e vName] path in
       let newmd = if errCode = 0 then md
         else {data = md.data;
@@ -762,8 +761,8 @@ and forest_uninc_load_gen (e: forest_node ast) (vName : string) : Parsetree.expr
               load_time = no_time;
               num_errors = md.num_errors + 1}
       in
-      (r,newmd) ][@metaloc loc] (*TODO: FIX THIS/Make sure it is correct *)
-  | Thunked(e) ->
+      (r,newmd) ][@metaloc loc]
+    | Thunked(e) ->
      let final_e = forest_uninc_load_gen e vName in
      begin
        match e.payload with
@@ -779,17 +778,11 @@ and forest_uninc_load_gen (e: forest_node ast) (vName : string) : Parsetree.expr
 
 and forest_manifest_gen (inside:bool) (e: forest_node ast) (vName : string) : Parsetree.expression =
   let e,loc = get_NaL e in
-  (* TODO: Figure out what kinda errors we might have and implement them
-   * - MD errors (No path, no permissions, etc? Or invalid of all the above) - Make a check_md function
-   * -- Also check that dirname exists?
-   * TODO: Fix storage during errors
-   *)
   let main_exp = match e with
       | SkinApp(_,_) -> raise_loc_err loc "forest_manifest_gen: Skin applications should not exist here."
       | Thunked(_) -> [%expr ()][@metaloc loc] (* Will get thrown away *)
       | Var(x) -> [%expr [%e exp_make_ident loc (manifest_name x)] ~tmpdir:tmpdir (rep,md)][@metaloc loc]
       | PathExp(ptype,e) -> [%expr [%e forest_manifest_gen true e vName] ~tmpdir:tmpdir (rep,md)][@metaloc loc] 
-      (*TODO: Should this depend on ptype and whatnot, or is that all already in the meta data? I think it is...*)
       | File ->
          [%expr
           let dirname = Filename.dirname info.full_path in
@@ -809,13 +802,6 @@ and forest_manifest_gen (inside:bool) (e: forest_node ast) (vName : string) : Pa
           let basename = Filename.basename info.full_path in
           let tmppath = Filename.concat tmpdir basename in
           let _ = Forest.store_link (rep,md) tmppath in
-          (* TODO: if not (Sys.file_exists rep) then Need to indicate failure here: nothing to link with *)
-          (* TODO: This can generate errors we should catch *)
-          (* TODO: Note that store_link may have issues with relative pathing... Maybe not though. 
-           * Do we want to indicate failure if they try to link with something not existent?
-           * Requires some extra info about the pathing...
-           * Re-look at store_link 
-           *)
           let sfunc ?dirname:(dirname=dirname) ?basename:(basename=basename) () =
             let storepath = Filename.concat dirname basename in
             let _ = if Sys.file_exists storepath then Unix.unlink storepath else () in
@@ -849,24 +835,6 @@ and forest_manifest_gen (inside:bool) (e: forest_node ast) (vName : string) : Pa
           { errors = errors; storeFunc = sfunc; tmppath = tmpdir }
          ][@metaloc loc]
       | Predicate(e,b) -> [%expr [%e forest_manifest_gen true e vName] ~tmpdir:tmpdir (rep, md)][@metaloc loc]
-         (* TODO: Add checks back in
-         [%expr
-             begin [@warning "-26"]
-             let (this,this_md) = (rep,md) in
-             let this_att = match this_md.info with
-               | Some(info) -> info
-               | None -> empty_info ""
-             in
-             let mani = [%e forest_manifest_gen true e vName] ~tmpdir:tmpdir (rep, md) in
-             if [%e exp_make_ocaml loc b] 
-             then mani 
-             else 
-               {storeFunc = mani.storeFunc;
-                tmppath = mani.tmppath;
-                errors = ("",PredicateFail) :: mani.errors
-               }
-             end][@metaloc loc] 
-         *)
       | Option(e) ->
          [%expr
           let dirname = Filename.dirname info.full_path in
@@ -982,7 +950,6 @@ and forest_manifest_gen (inside:bool) (e: forest_node ast) (vName : string) : Pa
        let main_setup =
          [%expr
              match md.info with
-             (* TODO: This is probably not quite right. What do we want to store? What path do we associate the log error with? *)
              | None -> 
                 let sfunc ?dirname:(dirname="") ?basename:(basename="") () = () in
                 { errors = [("",MD_Missing_Info)] ;storeFunc = sfunc; tmppath = tmpdir }
@@ -998,7 +965,7 @@ and forest_manifest_gen (inside:bool) (e: forest_node ast) (vName : string) : Pa
                then
                  let tmpdir = Filename.temp_file "forest-" "" in
                  let _ = Sys.remove tmpdir in
-                 let _ = Unix.mkdir tmpdir 0o770 in (* TODO: What permissions do we want here *)
+                 let _ = Unix.mkdir tmpdir 0o770 in
                  tmpdir
                else
                  tmpdir
@@ -1016,9 +983,6 @@ let rec delay_checker (fast : forest_node ast) : bool =
   | Thunked(_) -> true
   | File 
   | Link
-  (* TODO: Should we be more clever about vars? Checking them for
-     delays for example? In that case, need to also make them load
-     unincrementally in the special load func*)
   | Var(_)
   | Pads(_) -> false
   | Option(fast)
@@ -1053,8 +1017,6 @@ let rec dependency_grapher (vlist : varname list) (fast : forest_node ast)  : fo
      let newfast = dependency_grapher vlist fast in
      mk_ast loc @@ Thunked newfast
 
-  (* Do something special if this is thunked?
-  | Predicate(Thunked(fast),p) *)
   | Predicate(fast,p) -> 
      let newfast = dependency_grapher vlist fast in
      let deplist = List.filter (fun var ->
@@ -1117,7 +1079,6 @@ let rec dependency_grapher (vlist : varname list) (fast : forest_node ast)  : fo
      let _,newdlist = List.fold_left (fun (vacc,facc) (lbli,expi) -> 
        let newfast = dependency_grapher vacc expi in
        if delay_checker expi
-       (* Will break if multiple directories use same names in one desc *)
        then (lbli :: vacc,(lbli,newfast) :: facc)
        else (vacc,(lbli,newfast) :: facc)
      ) (vlist,[]) dlist
@@ -1125,7 +1086,6 @@ let rec dependency_grapher (vlist : varname list) (fast : forest_node ast)  : fo
      mk_ast loc @@ Directory (List.rev newdlist)
   | SkinApp(_,_) -> raise_loc_err loc "thunk_checker: Skin applications should not exist here."
 
-(* TODO: Decide how we want to do path expressions *)
 let rec fix_exp (fast : forest_node ast)  : forest_node ast =
   let e,loc = get_NaL fast in
   match e with
@@ -1158,7 +1118,7 @@ let rec fix_exp (fast : forest_node ast)  : forest_node ast =
 let def_generator loc (flist : (varname * forest_node ast) list) : structure =
   let def_gen ((name,e) : (varname * forest_node ast)) (tlist,llist)  : (type_declaration list * structure) =
     let loc = get_loc e in
-    let e = Skins.doSkinning loc (name,e) in
+    let e = Skins.doSkinning (name,e) in
     let e = fix_exp e in (* Fixes path expressions *)
     let _ = Hashtbl.replace Utility.forestTbl name e in
     let e =
@@ -1210,70 +1170,7 @@ let def_generator loc (flist : (varname * forest_node ast) list) : structure =
        and [%p pat_make_var loc (new_name name)] = fun path -> return ([%e exp_make_ident loc (new_nameR name)] path)
       ][@metaloc loc]
     in
-    (* TODO: Locate this error and add the warning string where it goes *)
-    let warning_stri =
-      Str.attribute ~loc @@ Ast_mapper.attribute_of_warning loc 
-        "Warning 22: A delayed dependency is automatically forced since its dependent is not delayed" 
-    in
     new_tlist, cost :: mani :: load :: llist 
   in
   let types, lets = List.fold_right def_gen flist ([],[]) in
   (Str.type_ ~loc Recursive types) :: lets
-
-
-
-
-  
-(* Useful for testing purposes
-  let locc = !default_loc in
-  let type_decl = {
-    ptype_name = { txt = "x"; loc = locc };
-    ptype_params = [];
-    ptype_cstrs = [];
-    ptype_kind = Ptype_abstract;
-    ptype_private = Public;
-    ptype_manifest = Some(typ_make_constr "Noo");
-    ptype_attributes = [];
-    ptype_loc = locc
-  }
-  in
-  (Str.type_ ?loc Recursive [ type_decl ]) ::
- *)
-
-(*
-  match e with
-    | Special(_loc,Print(e)) ->  
-      let fdist =
-        match e with
-        | Var(_loc,x) -> if Hashtbl.mem forestTbl x then Hashtbl.find forestTbl x else lFail _loc (Printf.sprintf "%s is not a forest description" x)
-        | _ -> (_loc,name,e)
-      in
-      let e = doSkinning fdist in
-      [%str_item:value $lid:name$ = $str: forest_print_desc ~name:name e$ ] 
-*)
-
-
-
-	(* OLD DEP_CHECK
-          match expi.payload with
-          | None -> [%expr let [%p names] = [%e forest_load_gen expi vName] path in [%e acc]][@metaloc loc]
-          | Some(deplist) -> 
-             let final_e =
-               List.fold_right (fun (v,e) acc ->
-                 let rec rem_path e =
-                   match e.fast_node with
-                   | PathExp(_,ne) -> rem_path ne
-                   | _ -> e
-                 in
-                 let newe = rem_path e in
-                 let names = [%pat? ([%p pat_make_var loc v],[%p pat_make_var loc (md_name v)])][@metaloc loc] in
-                 [%expr 
-                     match [%e exp_make_field_n loc (md_name v) "info"] with
-                     | None -> failwith "Dependency checking in Load: This should hopefully never happen"
-                     | Some(info) ->
-                        let [%p names] = [%e forest_uninc_load_gen newe vName] info.full_path in 
-                        [%e acc]][@metaloc loc]
-               ) deplist [%expr [%e forest_load_gen expi vName] path][@metaloc loc]
-             in
-           [%expr let [%p names] = [%e final_e] in [%e acc]][@metaloc loc]
-	*)          

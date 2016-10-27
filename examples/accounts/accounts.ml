@@ -37,7 +37,7 @@ bank = map [ clis :: <client> | clis <- matches GL "*" ]
 
 |}]
 
-let exDir = Filename.concat (Sys.getcwd ()) "accounts/accountsTesting"
+let exDir = Filename.concat (Sys.getcwd ()) "accounts/bank"
 
 (* Bank functions *)
 

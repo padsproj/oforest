@@ -34,6 +34,15 @@ let x_parse_string (f : lexbuf -> (varname * 'a) list) (loc : Location.t) (str :
     lex_curr_p = loc.loc_start;
   } in
   f lexbuf
+    
+let x_lex_string lexer str =
+  let lexbuf = Lexing.from_string str in
+  let rec lexing buf =
+    match lexer buf with
+    | Forest_parser.EOF -> []
+    | x -> x :: (lexing lexbuf) 
+  in
+  lexing lexbuf
        
 let forest_parse_with_error =x_parse_with_error Forest_parser.forest_prog Forest_lexer.forest_read
 let skin_parse_with_error = x_parse_with_error Forest_parser.skin_prog Forest_lexer.skin_read 
@@ -41,11 +50,5 @@ let skin_parse_with_error = x_parse_with_error Forest_parser.skin_prog Forest_le
 let forest_parse_string = x_parse_string forest_parse_with_error
 let skin_parse_string = x_parse_string skin_parse_with_error
 
-let forest_lex_string loc str =
-  let lexbuf = Lexing.from_string str in
-  let rec lexing buf =
-    match Forest_lexer.forest_read buf with
-    | Forest_parser.EOF -> []
-    | x -> x :: (lexing lexbuf) 
-  in
-  lexing lexbuf
+let forest_lex_string = x_lex_string Forest_lexer.forest_read
+let skin_lex_string = x_lex_string Forest_lexer.skin_read

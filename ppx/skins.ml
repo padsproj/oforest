@@ -35,7 +35,8 @@ let rec rec_check (name : varname) (e:forest_node ast) : bool =
 
 
 
-let fget_name = function
+let fget_name : forest_node -> string = (*Forest_parser_helper.show_forest_node *)
+function
   | Url(e)               -> "URL"
   | Pads(x)              -> "Pads " ^ x
   | PathExp(_,_)         -> "path"
@@ -49,8 +50,7 @@ let fget_name = function
   | Comprehension(_,_,_) -> "comp"
   | SkinApp _            -> "skinApp"
 
-  
-let tget_name = function
+let tget_name : t_node -> string = function
   | TTop       -> "top"
   | TBot       -> "bottom"
   | TOr _      -> "or"
@@ -67,7 +67,7 @@ let tget_name = function
   | TPads(x)   -> x
 
 
-let hget_name = function
+let hget_name : skin_node -> string = function
   | HDelay            -> "delay"
   | HUndelay          -> "undelay"
   | HNegate           -> "negate"
@@ -122,7 +122,7 @@ let rec comp_types f1 f2 =
 
 (* Main functions *)
 
-let rec evalTypeGen (t : t_node ast) (f : forest_node ast) = (* TODO: Fix so it prints right location on type failure *)
+let rec evalTypeGen (t : t_node ast) (f : forest_node ast) =
   let (e,loc) = get_NaL f in
   match e with
   | Thunked(e) -> evalTypeGen t e
@@ -199,7 +199,7 @@ let rec typeofH (h : skin_node ast) : (t_node ast)=
   | HUndelay       -> TTop
   | HNegate        -> TTop
   | HId            -> TTop
-  | HMap(_)        -> TTop (* TODO: Not sure this is right *)
+  | HMap(_)        -> TTop
 
   | HDir(hlist)    -> TDir(List.map (typeofH) hlist)
   | HOpt(h)        -> TOpt(typeofH h)
@@ -209,38 +209,13 @@ let rec typeofH (h : skin_node ast) : (t_node ast)=
   | HAlt(h1,h2)    -> TOr(typeofH h1,typeofH h2)
   | HDirFun(x,h)   -> TDirFun(x,typeofH h)
 
-  | HVar(x)       -> (* TODO: Make sure this works right in presence of recursion *)
+  | HVar(x)       -> 
     if Hashtbl.mem Utility.skinTbl x
     then let h = Hashtbl.find skinTbl x in
          (typeofH h).node
     else
       raise_loc_err loc (x ^ " is not a named skin")
   
-  (* TODO: Add in functions again?
-  | HFun(var,h)     -> TBot
-  | HApp(hfun,happ) ->  (* TODO: Needs to be implemented *)
-      match hfun with
-      | HVar("map") -> TTop
-      | HVar(x)     -> TFun(Dirfun(x))
-      | _ -> TBot (*raise_loc_err loc "General function application not yet implemented, just the special case map" *)
-  *)    
-
-  (* TODO: Remember how to do fix points and things and add this in later
-    let rec unfold hf = 
-      match hf with
-      | HFun(var,skin) -> typeofH ((var,happ) :: map) skin (* TODO: Think this can and will loop forever *)
-      | HVar(var) -> (* TODO: Could be an infinite loop *)
-        if List.mem_assoc var map
-        then let h = List.assoc var map in
-             unfold h
-        else
-          raise_loc_err loc (var ^ " is not a named skin")
-      | _ -> TBot
-    in
-    unfold hfun
-  *)
-
-
 let rec evalSkin loc (h : skin_node ast) (f : forest_node ast) : forest_node ast =
   let (e,floc) = get_NaL f in
   let evalSkin = evalSkin loc in
@@ -325,43 +300,7 @@ let rec evalSkin loc (h : skin_node ast) (f : forest_node ast) : forest_node ast
     then mk_ast loc @@ Thunked(f)
     else f
 
-(*
-let rec apply loc (s : exp) (d : dtree) : exp = 
-  let apply = apply loc in
-  match d with
-  | DTDelay(d) -> Thunked(apply s d)
-  | d -> 
-    match s with
-    | Thunked(_,s)
-    | s            -> 
-      match (s,d) with (* TODO: Maybe we actually want original loc locations to get better debug info? *)
-      (* Sanity check *)
-      | File _,DTCons(DTFile) -> File(loc)
-      | Link _,DTCons(DTLink) -> Link(loc)
-      | Var(loc2,sx),DTCons(DTRec(dx)) when sx=dx -> Var(sx)
-      | Pads(loc2,sx),DTCons(DTPads(dx)) when sx=dx -> Pads(sx)
-
-      | Predicate(loc2,s,expr),DTPred(d) -> Predicate(apply s d,expr)
-      | Option(loc2,s),DTOpt(d) -> Option(apply s d)
-      | Comprehension(loc2,l,s,b),DTComp(d) -> Comprehension(l,apply s d,b)
-      | PathExp(loc2,pt,s),d (* PATHREM DTPath(d)*) -> PathExp(pt,apply s d) 
-      | Directory(loc2,slist),DTDir(dlist) ->
-        let newl = List.fold_right2 (fun (_,lbl,s) (_,d) acc -> (lbl,apply s d) :: acc) slist dlist [] in
-        Directory(newl)
-      | Var(x),d -> (* TODO: Fix this *)
-          if Hashtbl.mem forestTbl x
-          then let (_l,_,s) = Hashtbl.find forestTbl x in
-               apply s d
-          else raise_loc_err loc (Printf.sprintf "%s is not a forest description.%s" x (debug_out (" d=" ^ (dtget_name d))))
-      | URL(_,s),d -> URL(apply s d)
-      | _ -> raise_loc_err loc 
-        ("Failure in skin application. Type checking is not sound w.r.t. function application, so that's probably the issue."  ^
-        (debug_out ("s=" ^ (sget_name s) ^ " d=" ^ (dtget_name d))))
-*)
-
-
-let rec doSkinning loc ((name,e) : (varname * forest_node ast)) : forest_node ast =
-  (* TODO: Add in recursion renaming/fix up to equirecursion *)
+let rec doSkinning ((name,e) : (varname * forest_node ast)) : forest_node ast =
   (* First, walk through until you find a skin application *)
   let rec walkThrough (b : bool) (e : forest_node ast) =
     let loc = get_loc e in
@@ -378,13 +317,11 @@ let rec doSkinning loc ((name,e) : (varname * forest_node ast)) : forest_node as
 	   let newlist = List.map (fun (labeli,expi) -> (labeli,wt expi)) dlist in
 	   Directory (newlist)
 	| SkinApp(spec,skin) ->
-	   (*TODO: Just added this, check functionality *)
 	   let spec = walkThrough b spec in
 	   let spec,b =
              match spec.node with
              | Var(x) when x = name -> {spec with payload=PRec},true
              | Var(x) -> 
-		(* TODO: Make sure this works as you expect *)
 		if b
 		then if Hashtbl.mem forestTbl x
 		  then let e = Hashtbl.find forestTbl x in
@@ -394,15 +331,8 @@ let rec doSkinning loc ((name,e) : (varname * forest_node ast)) : forest_node as
 		else {spec with payload = PNone},false
              | _ -> spec,b
 	   in 
-	   (* DEBUG
-	   let _ = Printf.printf "%s\n" (print_skin 0 skin) in *)
-	   (* TODO: Removed DTrees 
-	   let d = dtreeof _loc b name spec in
-	   let map = Hashtbl.fold (fun k h acc -> (k,h) :: acc) skinTbl [] in  *)
 	   let _ = evalTypeF loc (typeofH skin) spec in
 	   (evalSkin loc skin spec).node
-           (* TODO: Removed DTrees
-	   apply _loc spec d2 *)
 	| _ -> e.node
     }
   in 

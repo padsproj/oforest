@@ -1,8 +1,8 @@
 OASISFormat:    0.4
 OCamlVersion:   >= 4.03
 FindlibVersion: >= 1.3.2
-Name:           iForest
-Version:        0.0.1
+Name:           OCaml Forest
+Version:        0.8.0
 Synopsis:       Declarative language for file stores
 Authors:        Jonathan DiLorenzo, Richard Zhang, Nate Foster, Kathleen Fisher
 License:        LGPL
@@ -26,26 +26,26 @@ Library parser
   Findlibname:    parser
   BuildDepends:   forest, ppx_deriving.show, compiler-libs.common 
   CompiledObject: best
-  Modules:	   Forest_parser_helper
-  InternalModules: Forest_lexer, Forest_types, Forest_parser
+  Modules:	  Forest_parser_helper
+  InternalModules: Forest_lexer, Forest_parser, Forest_types
 
 Library ppx
   Path:           ppx
   BuildTools:     ocamlbuild
   Findlibparent:  forest
   Findlibname:    ppx
-  BuildDepends:   re, re.str, forest, forest.parser, ppx_tools.metaquot
+  BuildDepends:   re, re.str, forest.parser, forest, ppx_tools.metaquot
   CompiledObject: best
   Modules:        Ppx_forest
   InternalModules: Ppx_forest_lib, Utility, Skins
   XMETAEnable:    true
-  XMETADescription: Syntax extension for iForest
+  XMETADescription: Syntax extension library for OCaml Forest
   XMETARequires:   str re core threads ppx_tools.metaquot
   XMETAExtraLines:  ppx = "ppx_forest"
 
 Executable ppx_forest
   Path:           ppx
   MainIs:         ppx_forest.ml
-  BuildDepends:   forest, forest.ppx, pads.ppx, ppx_tools.metaquot
+  BuildDepends:   forest, forest.parser, forest.ppx, pads.ppx, ppx_tools.metaquot
   CompiledObject: best
 

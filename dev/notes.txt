@@ -4,7 +4,14 @@ Improvements:
 
 
 Issues:
-- Why can't we use Str and Forest in the ppx code?
+- (* TODO: Locate this error and add the warning string where it goes *)
+    let warning_stri =
+      Str.attribute ~loc @@ Ast_mapper.attribute_of_warning loc 
+        "Warning 22: A delayed dependency is automatically forced since its dependent is not delayed" 
+    in
+    
+- Equirecursive equality checking
+- Why can't we use Str and Forest in the ppx code? (Including Utility)
 -
 (* Make sure thunks work right with predicates and path expressions:
  * E.g. For predicates, force correctly if there's a 'this' or make <f> where p = <f where p>?
@@ -21,6 +28,9 @@ inside a manifest generation already or not, make sure that the
 'first' is not true.
 - Fix URL loading/assure yourself that it is correct
 -- What do we do with the path if URL loading is wrong for example.
+- Add attributes to control various behaviors
+-- 'NoCost' removing cost calculations
+-- 'Non-Streaming' to keep information around after loading a cursor
 
 Parsing:
 Useful for parser testing:
@@ -48,6 +58,96 @@ Oasis file:
 #ppx_driver 
 
 Functionality:
+Ppx_forest_lib:
+- Manifest
+  (* TODO: Figure out what kinda errors we might have and implement them
+   * - MD errors (No path, no permissions, etc? Or invalid of all the above)
+     - Make a check_md function
+   * -- Also check that dirname exists?
+   * TODO: Fix storage during errors
+   *)
+-- PathExp
+   (*TODO: Should this depend on ptype and whatnot, or is that all already in
+   the meta data? I think it is...*)
+-- Link
+(* TODO: if not (Sys.file_exists rep) then Need to indicate failure here: nothing to link with *)
+(* TODO: This can generate errors we should catch *)
+(* TODO: Note that store_link may have issues with relative pathing... Maybe not though. 
+* Do we want to indicate failure if they try to link with something not existent?
+* Requires some extra info about the pathing...
+* Re-look at store_link 
+*)
+-- Predicate
+(* TODO: Add checks back in
+[%expr
+begin [@warning "-26"]
+let (this,this_md) = (rep,md) in
+let this_att = match this_md.info with
+| Some(info) -> info
+| None -> empty_info ""
+in
+let mani = [%e forest_manifest_gen true e vName] ~tmpdir:tmpdir (rep, md) in
+if [%e exp_make_ocaml loc b] 
+then mani 
+else 
+{storeFunc = mani.storeFunc;
+tmppath = mani.tmppath;
+errors = ("",PredicateFail) :: mani.errors
+}
+end][@metaloc loc] 
+*)
+-- main_setup
+--- What to do with None info I guess is the question?
+   (* TODO: This is probably not quite right. What do we want to store? What
+   path do we associate the log error with? *)
+-- What permissions should we give the temporary directories?
+- Delay_checker
+-- Vars
+  (* TODO: Should we be more clever about vars? Checking them for
+     delays for example? In that case, need to also make them load
+     unincrementally in the special load func*)
+- Dependency_grapher
+-- Should we do something special if predicates contain chunks (maybe this
+should be disallowed in the first place?)?
+  (* Do something special if this is thunked?
+  | Predicate(Thunked(fast),p) *)
+-- Directory logic will break if multiple directories use the same names
+   in one description
+
+
+
+Skins:
+- Implement equirecursive equality checking
+- evalTypeGen (* TODO: Fix so it prints right location on type failure *)
+- typeofH
+-- Make sure HMap type is correct (should be?)
+-- Make sure Variable type works fine if there is recursion
+--
+  (* TODO: Add in functions again?
+  | HFun(var,h)     -> TBot
+  | HApp(hfun,happ) ->  (* TODO: Needs to be implemented *)
+      match hfun with
+      | HVar("map") -> TTop
+      | HVar(x)     -> TFun(Dirfun(x))
+      | _ -> TBot (*raise_loc_err loc "General function application not yet implemented, just the special case map" *)
+  *)
+--
+  (* TODO: Remember how to do fix points and things and add this in later
+    let rec unfold hf = 
+      match hf with
+      | HFun(var,skin) -> typeofH ((var,happ) :: map) skin (* TODO: Think this can and will loop forever *)
+      | HVar(var) -> (* TODO: Could be an infinite loop *)
+        if List.mem_assoc var map
+        then let h = List.assoc var map in
+             unfold h
+        else
+          raise_loc_err loc (var ^ " is not a named skin")
+      | _ -> TBot
+    in
+    unfold hfun
+  *)
+
+
 Forest lib:
 - get_md_info
 -- Errors
@@ -183,3 +283,40 @@ For manifests in ppx_forest_lib.ml, forest_new_gen
                  in
                  {tmppath = manifest.tmppath; storeFunc = manifest.sfunc; errors = manifest.errors}
                *)
+
+
+Old apply function in Skins:
+
+(*
+let rec apply loc (s : exp) (d : dtree) : exp = 
+  let apply = apply loc in
+  match d with
+  | DTDelay(d) -> Thunked(apply s d)
+  | d -> 
+    match s with
+    | Thunked(_,s)
+    | s            -> 
+      match (s,d) with (* TODO: Maybe we actually want original loc locations to get better debug info? *)
+      (* Sanity check *)
+      | File _,DTCons(DTFile) -> File(loc)
+      | Link _,DTCons(DTLink) -> Link(loc)
+      | Var(loc2,sx),DTCons(DTRec(dx)) when sx=dx -> Var(sx)
+      | Pads(loc2,sx),DTCons(DTPads(dx)) when sx=dx -> Pads(sx)
+
+      | Predicate(loc2,s,expr),DTPred(d) -> Predicate(apply s d,expr)
+      | Option(loc2,s),DTOpt(d) -> Option(apply s d)
+      | Comprehension(loc2,l,s,b),DTComp(d) -> Comprehension(l,apply s d,b)
+      | PathExp(loc2,pt,s),d (* PATHREM DTPath(d)*) -> PathExp(pt,apply s d) 
+      | Directory(loc2,slist),DTDir(dlist) ->
+        let newl = List.fold_right2 (fun (_,lbl,s) (_,d) acc -> (lbl,apply s d) :: acc) slist dlist [] in
+        Directory(newl)
+      | Var(x),d -> (* TODO: Fix this *)
+          if Hashtbl.mem forestTbl x
+          then let (_l,_,s) = Hashtbl.find forestTbl x in
+               apply s d
+          else raise_loc_err loc (Printf.sprintf "%s is not a forest description.%s" x (debug_out (" d=" ^ (dtget_name d))))
+      | URL(_,s),d -> URL(apply s d)
+      | _ -> raise_loc_err loc 
+        ("Failure in skin application. Type checking is not sound w.r.t. function application, so that's probably the issue."  ^
+        (debug_out ("s=" ^ (sget_name s) ^ " d=" ^ (dtget_name d))))
+*)
