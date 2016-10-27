@@ -27,11 +27,11 @@ test: setup.ml build
 
 clean:
 	ocamlbuild -clean
-	rm -f setup.data setup.log *.out
+	rm -f setup.ml setup.data setup.log *.out
 
 distclean:
 	ocaml setup.ml -distclean
-	rm -f setup.data setup.log
+	rm -f setup.data setup.log setup.ml *.out
 
 doc:
 	ocaml setup.ml -doc
