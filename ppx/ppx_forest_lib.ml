@@ -452,12 +452,12 @@ and forest_load_gen (e: forest_node ast) (vName : string) : Parsetree.expression
       | List ->
          ([%expr let (r,m) = [%e load_e] path in (r::rep,m::md)][@metaloc loc],
           [%expr ([],[]) ][@metaloc loc],
-          [%expr (List.rev rep,{
+          [%expr (rep,{
             num_errors = List.fold_left (fun a md -> md.num_errors + a) 0 md; 
             error_msg =  List.fold_left (fun a md -> md.error_msg @ a) [] md;
             info = Forest.get_md_info path;
             load_time = no_time;
-            data = List.rev md;
+            data = md;
           }) ][@metaloc loc])
     in
     (* Creates the folds that does the final accumulation. Does one fold per generator

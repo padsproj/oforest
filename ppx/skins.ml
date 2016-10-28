@@ -35,7 +35,11 @@ let rec rec_check (name : varname) (e:forest_node ast) : bool =
 
 
 
-let fget_name : forest_node -> string = (*Forest_parser_helper.show_forest_node *)
+let fget_name : forest_node -> string =
+  (*
+  let _ = Forest_parser_helper.forest_parse_string in
+  *)                                    
+(*Forest_parser_helper.show_forest_node *)
 function
   | Url(e)               -> "URL"
   | Pads(x)              -> "Pads " ^ x

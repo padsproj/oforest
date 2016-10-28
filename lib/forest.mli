@@ -96,6 +96,26 @@ val print_md_errors : 'a forest_md -> unit
 
 (** These functions print manifest and metadata errors respectively *)
 
+  
+val sort_comprehension :
+  (('a * 'b forest_md) -> ('a * 'b forest_md) -> int)
+  -> 'a list * 'b forest_md list forest_md
+  -> 'a list * 'b forest_md list forest_md
+
+
+(** [sort_comprehension] is a helper function meant to help sort comprehensions
+    (since their default order is unspecified). It takes a comparison function,
+    comparing one joined (rep,md) pair to another, as well as the comprehension
+    rep and md, returning the comprehension rep and md sorted using the compare
+    function. *)
+  
+val sort_comp_path :
+     'a list * 'b forest_md list forest_md
+  -> 'a list * 'b forest_md list forest_md
+
+(** [sort_comp_path] specializes [sort_comprehension], sorting based on the
+    full_path in the metadata.*)
+
 val regexp_from_string : forest_regexp_str -> forest_regexp
 val regexp_match : forest_regexp -> string -> bool
 val regexp_match_from_string : forest_regexp_str -> string -> bool

@@ -6,6 +6,9 @@ Desugar:
 
 Compile:
    make oopsla
+
+This example uses data from:
+https://catalog.data.gov/dataset/baby-names-from-social-security-card-applications-national-level-data
 *)
 
 open Pads
@@ -65,6 +68,7 @@ let find_inc name =
   let%bind cur = d_inc_new "oopsla/names/" in
   let%bind (r,md) = load cur in
   if md.num_errors = 0 then
+    let (fr,fmd) = Forest.sort_comp_path (r.files,md.data.files_md) in
     List.fold_right
       (fun c mon ->
         let%bind (r,md) = load c in
@@ -78,10 +82,10 @@ let find_inc name =
              | Male _ -> "M"
              | Female _ -> "F"
            in
-           Printf.printf "{ name = %s, gender = %s, freq = %d }\n%!" h.name gen h.freq;
-           mon
+             Printf.printf "{ name = %s, gender = %s, freq = %d }\n%!" h.name gen h.freq;
+             mon
       )
-       r.files (return ())
+       fr (return ())
   else
     return (List.iter (fun s -> Printf.printf "%s\n" s) md.error_msg)
 

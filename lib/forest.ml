@@ -1,14 +1,7 @@
-(*
-open Filename
-open Sys
-open Pads
-open Core
-open Core_kernel
-*)
 open Unix
 
 
-(* Rest *)
+(* Types *)
 
 
 type fKind = 
@@ -73,7 +66,25 @@ type manifest =
     storeFunc : ?dirname:filepath -> ?basename:filepath -> unit -> unit;
     tmppath : filepath }
 
-(* Implementations *)
+(* Some useful user level functions *)
+
+let sort_comprehension (compare : ('a * 'b forest_md) -> ('a * 'b forest_md) -> int)
+    ((rep,md) : 'a list * 'b forest_md list forest_md)
+    : 'a list * 'b forest_md list forest_md =
+  let l = List.combine rep md.data in
+  let l = List.fast_sort compare l in
+  let (r,m) = List.split l in
+  (r,{md with data = m})
+
+let sort_comp_path ((rep,md) : 'a list * 'b forest_md list forest_md)
+    : 'a list * 'b forest_md list forest_md =
+  let comp (r1,m1) (r2,m2) = match (m1.info,m2.info) with
+    | None, None -> 0
+    | None, _ -> -1
+    | _, None -> 1
+    | Some(i1),Some(i2) -> String.compare i1.full_path i2.full_path 
+  in
+  sort_comprehension comp (rep,md)
 
 let print_mani_errors (mani: manifest) =
   List.iter (fun (path,err) -> 
@@ -85,6 +96,9 @@ let print_md_errors (md: 'a forest_md) =
     Printf.printf "Error: %s\n" err
   ) md.error_msg
 
+
+(* Helper functions *)
+    
 let regexp_from_string : forest_regexp_str -> forest_regexp = Str.regexp
 let regexp_match (reg : forest_regexp) (str : string) : bool =
   try 
@@ -178,7 +192,7 @@ let empty_md (data : 'a) (path : filepath) : 'a forest_md =
     data = data
   }
 
-let unit_md : (filepath -> unit forest_md) = base_md ()
+let unit_md : (filepath -> unit forest_md) = base_md ()  
 
 (* Loadings and Storing primitives *)
     

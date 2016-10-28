@@ -24,18 +24,18 @@ tmpfullnamenoext=${tmp%.*};
 if (( $# == 2 )) && [ "$2" -eq "2" ];
 then
     $dir/desugar.sh $fullname > $tmp
-    ocamlfind ocamlopt -o $namenoext.out -package core,pads,pads.ppx,forest,forest.ppx,re,unix,str,re.glob -linkpkg $tmp -thread -g
+    ocamlfind ocamlopt -o $namenoext.out -package core,pads,pads.ppx,forest,forest.forest_ppx,re,unix,str,re.glob -linkpkg $tmp -thread -g
     rm $tmpfullnamenoext.cmx $tmpfullnamenoext.o $tmpfullnamenoext.cmi
     rm -f $fullnamenoext.cmx $fullnamenoext.o $fullnamenoext.cmi
 else if (( $# == 2 )) && [ "$2" -eq "3" ];
 then
-    ocamlfind ocamlopt -o $namenoext.out -package forest.ppx,pads,pads.ppx,re,core,unix,str,re.glob,forest -linkpkg $tmp -thread -g
+    ocamlfind ocamlopt -o $namenoext.out -package forest.forest_ppx,pads,pads.ppx,re,core,unix,str,re.glob,forest -linkpkg $tmp -thread -g
     rm $tmpfullnamenoext.cmx $tmpfullnamenoext.o $tmpfullnamenoext.cmi
 else if (( $# == 2 )) && [ "$2" -eq "4" ];
 then
     $dir/desugar.sh $fullname
 else
-    ocamlfind ocamlopt -o $namenoext.out -package core,pads,pads.ppx,forest,forest.ppx,re,unix,str,re.glob -linkpkg $fullname -thread -w -30
+    ocamlfind ocamlopt -o $namenoext.out -package core,pads,pads.ppx,forest,forest.forest_ppx,re,unix,str,re.glob -linkpkg $fullname -thread -w -30
     rm $fullnamenoext.cmx $fullnamenoext.o $fullnamenoext.cmi
 fi;
 fi;
