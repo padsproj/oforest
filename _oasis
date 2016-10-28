@@ -12,7 +12,7 @@ AlphaFeatures: ocamlbuild_more_args
 XOCamlbuildExtraArgs: -use-menhir
 
 
-Library forest 
+Library forest
   Path:          lib
   BuildTools:    ocamlbuild
   BuildDepends:   pads, str, re, re.glob, core, threads, ppx_let
@@ -24,7 +24,7 @@ Library forest_parser
   BuildTools:     ocamlbuild, menhir, ocamllex
   Findlibparent:  forest
   Findlibname:    forest_parser
-  BuildDepends:   forest, ppx_deriving.show, compiler-libs.common 
+  BuildDepends:   forest, ppx_deriving.show, compiler-libs.common
   CompiledObject: best
   Modules:	  Forest_parser_helper, Forest_types
   InternalModules: Forest_lexer, Forest_parser
@@ -36,7 +36,6 @@ Library forest_ppx
   Findlibname:    forest_ppx
   BuildDepends:   re, re.str, forest.forest_parser, forest, ppx_tools.metaquot
   CompiledObject: best
-  Modules:        Ppx_forest
   InternalModules: Ppx_forest_lib, Utility, Skins
   XMETAEnable:    true
   XMETADescription: Syntax extension library for OCaml Forest
@@ -48,4 +47,3 @@ Executable ppx_forest
   MainIs:         ppx_forest.ml
   BuildDepends:   forest, forest.forest_parser, forest.forest_ppx, pads.ppx, ppx_tools.metaquot
   CompiledObject: best
-

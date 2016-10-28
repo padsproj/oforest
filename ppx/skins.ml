@@ -5,7 +5,7 @@ open Utility
 let rec rec_replace (oldX : varname) (newX: varname) (e: forest_node ast) : forest_node ast =
   let rr = rec_replace oldX newX in
   {e with node =
-      match e.node with 
+      match e.node with
       | Thunked(e) -> Thunked(rr e)
       | Predicate(e,p) -> Predicate(rr e,p)
       | Option(e)      -> Option(rr e)
@@ -14,13 +14,13 @@ let rec rec_replace (oldX : varname) (newX: varname) (e: forest_node ast) : fore
       | Url(e) -> Url(rr e)
       | Directory (es) ->
 	 let newlist = List.map (fun (labeli,expi) -> (labeli,rr expi)) es in
-	 Directory(newlist)  
+	 Directory(newlist)
       | Var(x) when x = oldX -> Var(newX)
       | _ -> e.node}
 
 let rec rec_check (name : varname) (e:forest_node ast) : bool =
   let (e,loc) = get_NaL e in
-  match e with 
+  match e with
   | Thunked(e) -> rec_check name e
   | Predicate(e,_)
   | Option(e)
@@ -28,17 +28,16 @@ let rec rec_check (name : varname) (e:forest_node ast) : bool =
   | Comprehension(_,e,_) -> rec_check name e
   | Directory (dlist) ->
     List.fold_right (fun (labeli,expi) b ->
-      b || (rec_check name expi)) dlist false  
-  | Var(x) when x = name -> true 
+      b || (rec_check name expi)) dlist false
+  | Var(x) when x = name -> true
   | SkinApp(e,_) -> rec_check name e
   | _ -> false
 
 
 
 let fget_name : forest_node -> string =
-  (*
+
   let _ = Forest_parser_helper.forest_parse_string in
-  *)                                    
 (*Forest_parser_helper.show_forest_node *)
 function
   | Url(e)               -> "URL"
@@ -75,7 +74,7 @@ let hget_name : skin_node -> string = function
   | HDelay            -> "delay"
   | HUndelay          -> "undelay"
   | HNegate           -> "negate"
-  | HId               -> "id" 
+  | HId               -> "id"
   | HComp _            -> "comprehension"
   | HOpt _             -> "option"
   | HDir _             -> "dir"
@@ -102,7 +101,7 @@ let rec comp_types f1 f2 =
   | PathExp(_,f1),_
   | Thunked(f1),_   -> comp_types f1 f2
   | _,PathExp(_,f2)
-  | _,Thunked(f2)   -> comp_types f1 f2  
+  | _,Thunked(f2)   -> comp_types f1 f2
   | Comprehension(_,f1,_),Comprehension(_,f2,_)
   | Predicate(f1,_),Predicate(f2,_)
   | Option f1, Option f2
@@ -121,7 +120,7 @@ let rec comp_types f1 f2 =
        | [],[] -> true,""
        | _ -> false, "Directories have different number of fields"
       in
-     dirChecker (dlist1,dlist2)     
+     dirChecker (dlist1,dlist2)
   | _ -> false,(Printf.sprintf "Expected construct %s, but was construct %s" (fget_name e1) (fget_name e2))
 
 (* Main functions *)
@@ -139,7 +138,7 @@ let rec evalTypeGen (t : t_node ast) (f : forest_node ast) =
     | TPred,Predicate(_) -> true,""
     | TPads(x),Pads(y) when x = y -> true,""
     | TRec,Var(_) -> f.payload = PRec,"Expected recursive type, but type was not recursive"
-    | _,Var(x) -> 
+    | _,Var(x) ->
        if Hashtbl.mem forestTbl x
       then let e = Hashtbl.find forestTbl x in
 	   let r = rec_check x e in
@@ -171,11 +170,11 @@ let rec evalTypeGen (t : t_node ast) (f : forest_node ast) =
 	   if b
 	   then dirChecker (ttl,etl)
 	   else false,m
-	| (t :: ttl), [] -> false,"More directory entries in skin than description"  
+	| (t :: ttl), [] -> false,"More directory entries in skin than description"
 	| [], _ -> true,""
       in
       dirChecker (tlist,dlist)
-    | TTypeOf(x),_ -> 
+    | TTypeOf(x),_ ->
       if Hashtbl.mem forestTbl x
       then let e = Hashtbl.find forestTbl x in
            comp_types e f
@@ -183,14 +182,14 @@ let rec evalTypeGen (t : t_node ast) (f : forest_node ast) =
     | TDirFun(x,t),Directory(dlist) ->
       if List.exists (fun (s,_) -> s = x) dlist
       then let (_,f) = List.find (fun (s,_) -> s = x) dlist in
-	   evalTypeGen t f	     
+	   evalTypeGen t f
       else false,"Directory didn't contain " ^ x
   | t,e -> false,get_std_err t e
 
 
 let evalType t e = fst (evalTypeGen t e)
 
-let evalTypeF loc t e = 
+let evalTypeF loc t e =
   let (b,msg) = (evalTypeGen t e) in
   if b then b else raise_loc_err loc (Printf.sprintf "%s" msg)
 
@@ -213,19 +212,19 @@ let rec typeofH (h : skin_node ast) : (t_node ast)=
   | HAlt(h1,h2)    -> TOr(typeofH h1,typeofH h2)
   | HDirFun(x,h)   -> TDirFun(x,typeofH h)
 
-  | HVar(x)       -> 
+  | HVar(x)       ->
     if Hashtbl.mem Utility.skinTbl x
     then let h = Hashtbl.find skinTbl x in
          (typeofH h).node
     else
       raise_loc_err loc (x ^ " is not a named skin")
-  
+
 let rec evalSkin loc (h : skin_node ast) (f : forest_node ast) : forest_node ast =
   let (e,floc) = get_NaL f in
   let evalSkin = evalSkin loc in
   let es = evalSkin in
   match h.node with
-  | HVar(x)       -> 
+  | HVar(x)       ->
     if Hashtbl.mem Utility.skinTbl x
     then let h = Hashtbl.find skinTbl x in
          es h f
@@ -254,16 +253,16 @@ let rec evalSkin loc (h : skin_node ast) (f : forest_node ast) : forest_node ast
       match e with
       | Thunked(e) -> e,true
       | e -> f,false
-    in    
+    in
     let e,del =
-      match (hn,e.node) with   
+      match (hn,e.node) with
       | HOpt(h),Option(e)   -> Option(es h e),del
       | HComp(h),Comprehension(m,e,l) -> Comprehension(m,es h e,l),del
       | HDir(hlist),Directory(dlist) ->
 	 let rec dirChanger = function
 	   | (h :: htl), ((lbl,exp) :: etl) ->
 	      (lbl,(es h exp)) :: (dirChanger (htl,etl))
-	   | (h :: ttl), [] ->  raise_loc_err loc "More directory entries in skin than description"  
+	   | (h :: ttl), [] ->  raise_loc_err loc "More directory entries in skin than description"
 	   | [], _ -> []
 	 in
 	 let nlist = dirChanger (hlist,dlist) in
@@ -286,7 +285,7 @@ let rec evalSkin loc (h : skin_node ast) (f : forest_node ast) : forest_node ast
 	 let h3 = mk_ast loc HId in
 	 let h = List.fold_right (fun h acc -> mk_ast loc @@ HAlt(h,acc) ) [h1;h2] h3 in
 	 let newf = es h f in
-	 begin 
+	 begin
 	   match newf.node with
 	   | Thunked(e) -> e.node,true
 	   | e -> e,del
@@ -295,8 +294,8 @@ let rec evalSkin loc (h : skin_node ast) (f : forest_node ast) : forest_node ast
       | hn,PathExp(p,e)       -> PathExp(p,es h e),del
       | hn,SkinApp(e,x)       -> SkinApp(es h e,x),del
       | hn,Url(e)             -> Url(es h e),del
-      | h,e                  -> raise_loc_err loc 
-        ("Failure in evalSkin. Type checking is not sound w.r.t. function application, so that's probably the issue." ^ 
+      | h,e                  -> raise_loc_err loc
+        ("Failure in evalSkin. Type checking is not sound w.r.t. function application, so that's probably the issue." ^
             (debug_out ("h=" ^ (hget_name h) ^ " e=" ^ (fget_name e))))
     in
     let f = mk_ast loc e in
@@ -309,13 +308,13 @@ let rec doSkinning ((name,e) : (varname * forest_node ast)) : forest_node ast =
   let rec walkThrough (b : bool) (e : forest_node ast) =
     let loc = get_loc e in
     let wt = walkThrough false in
-    {e with node = 
-	match e.node with 
+    {e with node =
+	match e.node with
 	| Thunked(e) -> Thunked(wt e)
 	| Predicate(e,p) -> Predicate(wt e,p)
 	| Option(e) -> Option(wt e)
 	| PathExp(p,e)  -> PathExp(p,wt e)
-	| Comprehension(t,e,plist) -> Comprehension(t,wt e,plist) 
+	| Comprehension(t,e,plist) -> Comprehension(t,wt e,plist)
 	| Url(e) -> Url(wt e)
 	| Directory (dlist) ->
 	   let newlist = List.map (fun (labeli,expi) -> (labeli,wt expi)) dlist in
@@ -325,7 +324,7 @@ let rec doSkinning ((name,e) : (varname * forest_node ast)) : forest_node ast =
 	   let spec,b =
              match spec.node with
              | Var(x) when x = name -> {spec with payload=PRec},true
-             | Var(x) -> 
+             | Var(x) ->
 		if b
 		then if Hashtbl.mem forestTbl x
 		  then let e = Hashtbl.find forestTbl x in
@@ -334,10 +333,10 @@ let rec doSkinning ((name,e) : (varname * forest_node ast)) : forest_node ast =
 		  else raise_loc_err loc (Printf.sprintf "%s is not a forest description" x)
 		else {spec with payload = PNone},false
              | _ -> spec,b
-	   in 
+	   in
 	   let _ = evalTypeF loc (typeofH skin) spec in
 	   (evalSkin loc skin spec).node
 	| _ -> e.node
     }
-  in 
+  in
   walkThrough true e
