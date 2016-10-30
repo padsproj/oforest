@@ -1,6 +1,6 @@
 # Merlin file for automatically dealing with pkgs
 # Note that it won't work right if forest isn't installed
-PKG pads pads.ppx forest forest.ppx compiler-libs.common str
+PKG pads pads.pads_ppx forest forest.forest_ppx compiler-libs.common str
 S parsing
 S ppx
 S lib
