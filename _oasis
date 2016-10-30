@@ -36,7 +36,8 @@ Library forest_ppx
   Findlibname:    forest_ppx
   BuildDepends:   re, re.str, forest.forest_parser, forest, ppx_tools.metaquot
   CompiledObject: best
-  InternalModules: Ppx_forest_lib, Utility, Skins
+  Modules : Ppx_forest_lib, Utility
+  InternalModules:  Skins
   XMETAEnable:    true
   XMETADescription: Syntax extension library for OCaml Forest
   XMETARequires:   str re core threads ppx_tools.metaquot

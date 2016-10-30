@@ -101,3 +101,9 @@ val mk_ast : loc -> 'a -> 'a ast
 val mk_p_ast : loc -> fPayload -> 'a -> 'a ast
 
 (** These are two helper functions for making AST nodes *)
+
+(** {2 Generated functions} *)
+
+val show_forest_node : forest_node -> string
+val show_skin_node : skin_node -> string
+val show_t_node : t_node -> string

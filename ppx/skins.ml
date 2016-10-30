@@ -33,58 +33,11 @@ let rec rec_check (name : varname) (e:forest_node ast) : bool =
   | SkinApp(e,_) -> rec_check name e
   | _ -> false
 
+let fget_name : forest_node -> string = Forest_types.show_forest_node 
 
+let tget_name : t_node -> string = Forest_types.show_t_node
 
-let fget_name : forest_node -> string =
-
-  let _ = Forest_parser_helper.forest_parse_string in
-(*Forest_parser_helper.show_forest_node *)
-function
-  | Url(e)               -> "URL"
-  | Pads(x)              -> "Pads " ^ x
-  | PathExp(_,_)         -> "path"
-  | Var(x)               -> "Var " ^ x
-  | Thunked(_)           -> "delay"
-  | Option(_)            -> "opt"
-  | File                 -> "file"
-  | Link                 -> "link"
-  | Directory (_)        -> "dir"
-  | Predicate(_,_)       -> "pred"
-  | Comprehension(_,_,_) -> "comp"
-  | SkinApp _            -> "skinApp"
-
-let tget_name : t_node -> string = function
-  | TTop       -> "top"
-  | TBot       -> "bottom"
-  | TOr _      -> "or"
-  | TTypeOf(_) -> "typeof"
-  | TDirFun(x,_) -> x
-  | TAnd _     -> "and"
-  | TComp _    -> "comprehension"
-  | TOpt _     -> "option"
-  | TDir _     -> "dir"
-  | TFile      -> "file"
-  | TLink      -> "link"
-  | TPred      -> "predicate"
-  | TRec       -> "rec"
-  | TPads(x)   -> x
-
-
-let hget_name : skin_node -> string = function
-  | HDelay            -> "delay"
-  | HUndelay          -> "undelay"
-  | HNegate           -> "negate"
-  | HId               -> "id"
-  | HComp _            -> "comprehension"
-  | HOpt _             -> "option"
-  | HDir _             -> "dir"
-
-  | HType _            -> "type"
-  | HVar(x)            -> "var " ^ x
-  | HSeq _             -> "seq"
-  | HAlt _             -> "alt"
-  | HMap _             -> "map"
-  | HDirFun(x,_)       -> "dirEnt " ^ x
+let hget_name : skin_node -> string = Forest_types.show_skin_node
 
 
 let get_err s t e =  Printf.sprintf s (tget_name t) (fget_name e)

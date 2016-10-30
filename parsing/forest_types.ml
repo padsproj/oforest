@@ -54,7 +54,7 @@ type t_node =
   | TAnd of t_node ast * t_node ast
   | TDir of t_node ast list 
   | TTypeOf of varname 
-  | TDirFun of varname * t_node ast
+  | TDirFun of varname * t_node ast [@@deriving show]
 
 and skin_node =
   | HDelay 
@@ -69,7 +69,7 @@ and skin_node =
   | HSeq of skin_node ast * skin_node ast
   | HAlt of skin_node ast * skin_node ast 
   | HMap of skin_node ast
-  | HDirFun of varname * skin_node ast[@@deriving show]
+  | HDirFun of varname * skin_node ast [@@deriving show]
 
 and forest_node = 
 | SkinApp of forest_node ast * skin_node ast
@@ -85,8 +85,8 @@ and forest_node =
 | PathExp of pathType * forest_node ast
 | Predicate of forest_node ast * aquot [@@deriving show]
 
-let mk_ast (loc : loc) (node : 'a) : 'a ast = 
-  { node; loc; payload = PNone; }
 
 let mk_p_ast (loc : loc) (payload : fPayload) (node : 'a) : 'a ast = 
   { node; loc; payload}
+
+let mk_ast (loc : loc) (node : 'a) : 'a ast = mk_p_ast loc PNone node

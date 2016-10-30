@@ -97,13 +97,11 @@ let debug_out s = if debug then s else ""
 
 let get_NaL (ast : 'a ast) : ('a * loc) = ast.node, ast.loc
 let get_loc (a : 'a ast) : Location.t = a.loc
-  
-let mk_ast (loc : loc) (node : 'a) : 'a ast = 
-  { node; loc; payload = PNone; }
     
-let mk_p_ast (loc : loc) (payload : fPayload) (node : 'a) : 'a ast = 
-  { node; loc; payload}
-       
+let mk_p_ast :  loc ->  Forest_types.fPayload -> 'a -> 'a ast = Forest_types.mk_p_ast
+
+let mk_ast : loc -> 'a -> 'a ast = Forest_types.mk_ast
+  
 let find_ident_in_str (name : string) (expr : string) : bool =
   let re = Re_str.regexp (Printf.sprintf "\\b%s\\b" name) in
   try 
