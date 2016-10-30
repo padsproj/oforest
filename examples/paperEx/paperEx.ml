@@ -45,10 +45,12 @@ open String
 let get_ex_dir () = (sprintf "%s/%s/%s" (Sys.getcwd ()) exName "exDir")
 
 let classic path =
-  let (rep,md) = d_load path in 
+  let%bind cur = d_new path in
+  let%bind (rep,md) = load cur in
   if md.num_errors = 0 then
     let go f s = printf "%s: %d\n" f (length s) in
-    List.iter2 go (lines rep.index) rep.data
+    List.iter2 go (lines rep.index) rep.data;
+    return ()
   else
     let error = String.concat "\n" md.error_msg in
     failwith (Printf.sprintf "%s" error)
@@ -68,6 +70,9 @@ let inc path =
     failwith (Printf.sprintf "%s" error)
 
 let _ =
-  let _ = classic (get_ex_dir ()) in
-  let (_,c) = run (inc @@ get_ex_dir ()) in
+  let (_,c) = run (
+    classic @@ get_ex_dir () >>= fun _ ->
+    inc @@ get_ex_dir () 
+  ) in
+  Printf.printf "\nCosts:\n";
   List.iter (fun (name,num) -> Printf.printf "%s:%d\n" name num) c

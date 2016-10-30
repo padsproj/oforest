@@ -361,7 +361,7 @@ and forest_load_gen (e: forest_node ast) (vName : string) : Parsetree.expression
           )
        | Generator(loc,mvar,InList(locm, lst)) -> (* lst should be an expression that evaluates to a list *)
           (mvar::vacc,
-           [%expr let [%p pat_make_var loc (list_name mvar)] = [%e exp_make_ocaml locm lst] in [%e eacc]][@metaloc loc])
+           [%expr let [%p pat_make_var loc (list_name mvar)] = List.rev [%e exp_make_ocaml locm lst] in [%e eacc]][@metaloc loc])
        | Guard(loc,aq) ->         
 	  let depVars = List.fold_left (fun acc bvar ->
             if find_ident_in_str (att_name bvar) aq
