@@ -96,6 +96,14 @@ let print_md_errors (md: 'a forest_md) =
     Printf.printf "Error: %s\n" err
   ) md.error_msg
 
+    
+let exit_on_error md =
+  if md.num_errors > 0
+  then begin
+    print_md_errors md;
+    exit 1;
+  end
+  else ()
 
 (* Helper functions *)
     

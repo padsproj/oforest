@@ -93,8 +93,10 @@ val err_to_string : manifest_error -> string
 
 val print_mani_errors : manifest -> unit
 val print_md_errors : 'a forest_md -> unit
+val exit_on_error : 'a forest_md -> unit
 
-(** These functions print manifest and metadata errors respectively *)
+(** These functions print manifest and metadata errors respectively.
+    The last one exits after printing the errors if there are any.*)
 
   
 val sort_comprehension :
