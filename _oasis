@@ -46,5 +46,5 @@ Library forest_ppx
 Executable ppx_forest
   Path:           ppx
   MainIs:         ppx_forest.ml
-  BuildDepends:   forest, forest.forest_parser, forest.forest_ppx, pads.ppx, ppx_tools.metaquot
+  BuildDepends:   forest, forest.forest_parser, forest.forest_ppx, ppx_tools.metaquot
   CompiledObject: best

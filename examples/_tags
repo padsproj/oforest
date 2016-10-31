@@ -1,2 +1,1 @@
-# ocamlbuild -use-ocamlfind -I oopsla -pkgs pads.ppx,forest.ppx,pads,forest oopsla.native -tag thread
-true: thread, package(pads,forest,pads.ppx,forest.forest_ppx), warn(-30)
+true: thread, package(pads,forest,pads.pads_ppx,forest.forest_ppx), warn(-30)

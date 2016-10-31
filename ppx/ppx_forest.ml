@@ -8,7 +8,6 @@ open Utility
 
 
 let forest_mapper argv =
-  (* Our getenv_mapper only overrides the handling of expressions in the default mapper. *)
   { default_mapper with
     structure = fun mapper strl ->  
       let rec forest_replace acc str =

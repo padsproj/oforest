@@ -64,14 +64,13 @@ desugaring a Forest source file into vanilla OCaml used by running:
 There are two recommended ways to build a Forest source file using
 either ocamlfind or ocamlbuild (which uses ocamlfind):
 
-> ocamlfind ocamlc -thread -w -30 -package pads,pads.ppx,forest,forest.ppx -linkpkg [file.ml]
+> ocamlfind ocamlc -thread -w -30 -package pads,pads.pads_ppx,forest,forest.forest_ppx -linkpkg [file.ml]
 
-> ocamlbuild -use-ocamlfind -pkgs
-  pads.ppx,forest.ppx,pads,forest[,list of other packages you want to
-  use] -tags thread,'warn(-30)' -I [project folder containing
-  fileName.ml] [fileName].native
+> ocamlbuild -use-ocamlfind -pkgs pads.pads_ppx,forest.forest_ppx,pads,forest
+  -tags thread,'warn(-30)' -I [project folder containing fileName.ml]
+  [fileName].native
   
-Where X.ppx imports the extension interpreter for X, '-w -30' or
+Where X.X_ppx imports the extension interpreter for X, '-w -30' or
 'warn(-30)' turns off warning 30 (which is for label collisions in
 records, an inevitable consequence of Incremental Forest), and the
 thread tag is required due to some other libraries.

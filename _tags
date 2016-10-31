@@ -1,5 +1,5 @@
 # OASIS_START
-# DO NOT EDIT (digest: 81fb82e96fcaee1e6c14588899edd2be)
+# DO NOT EDIT (digest: 10c7e455b00488e296574506bd127404)
 # Ignore VCS directories, you can use the same kind of rule outside
 # OASIS_START/STOP if you want to exclude directories that contains
 # useless stuff for the build process
@@ -41,7 +41,6 @@ true: annot, bin_annot
 <ppx/ppx_forest.{native,byte}>: package(compiler-libs.common)
 <ppx/ppx_forest.{native,byte}>: package(core)
 <ppx/ppx_forest.{native,byte}>: package(pads)
-<ppx/ppx_forest.{native,byte}>: package(pads.ppx)
 <ppx/ppx_forest.{native,byte}>: package(ppx_deriving.show)
 <ppx/ppx_forest.{native,byte}>: package(ppx_let)
 <ppx/ppx_forest.{native,byte}>: package(ppx_tools.metaquot)
@@ -56,7 +55,6 @@ true: annot, bin_annot
 <ppx/*.ml{,i,y}>: package(compiler-libs.common)
 <ppx/*.ml{,i,y}>: package(core)
 <ppx/*.ml{,i,y}>: package(pads)
-<ppx/*.ml{,i,y}>: package(pads.ppx)
 <ppx/*.ml{,i,y}>: package(ppx_deriving.show)
 <ppx/*.ml{,i,y}>: package(ppx_let)
 <ppx/*.ml{,i,y}>: package(ppx_tools.metaquot)
