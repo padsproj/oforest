@@ -424,7 +424,7 @@ module CursorMonad (M : CostMon) : CursorMonad with type cost = M.cost = struct
   type 'a t = cost -> ('a * cost)
   include Core_kernel.Monad.Make (struct
     type nonrec 'a t = 'a t
-    let bind m f = 
+    let bind m ~f = 
       fun c ->
         let x,nc = m c in
         f x nc

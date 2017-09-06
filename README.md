@@ -16,7 +16,7 @@ amounts of data.
 <a name="install"/>
 ## Installation
 
-OCaml Forest requires OCaml 4.03.0 or greater, [OCaml Pads][opads],
+OCaml Forest requires OCaml 4.05.0 or greater, [OCaml Pads][opads],
 and a few OPAM packages.
 
 You can get all the prerequisites by following these steps:
@@ -28,7 +28,7 @@ You can get all the prerequisites by following these steps:
 
    > opam upgrade
 
-   > opam switch 4.03.0
+   > opam switch 4.05.0
 
    > eval $(opam config env)
 

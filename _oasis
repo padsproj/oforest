@@ -1,8 +1,8 @@
 OASISFormat:    0.4
-OCamlVersion:   >= 4.03
+OCamlVersion:   >= 4.05
 FindlibVersion: >= 1.3.2
 Name:           OCaml Forest
-Version:        0.8.0
+Version:        0.9.0
 Synopsis:       Declarative language for file stores
 Authors:        Jonathan DiLorenzo, Richard Zhang, Nate Foster, Kathleen Fisher
 License:        LGPL
@@ -15,7 +15,7 @@ XOCamlbuildExtraArgs: -use-menhir
 Library forest
   Path:          lib
   BuildTools:    ocamlbuild
-  BuildDepends:   pads, str, re, re.glob, core, threads, ppx_let
+  BuildDepends:   pads, str, re, re.glob, core, threads
   CompiledObject: best
   Modules:       Forest, PadsInterface
 

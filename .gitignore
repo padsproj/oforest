@@ -26,3 +26,7 @@ setup.data
 setup.log
 setup.ml
 myocamlbuild.ml
+
+# Scripts
+compileForest.sh
+desugar.sh

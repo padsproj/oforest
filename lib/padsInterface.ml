@@ -15,4 +15,4 @@ let load_for_forest (parse : Pads.filepath -> ('a * 'b Pads.pads_md))
 
 let pads_store (mani : 'a Pads.padsManifest) (path : Pads.filepath) : unit =
   let data = mani.pads_str in
-  Core.Std.Out_channel.write_all path ~data
+  Core.Out_channel.write_all path ~data

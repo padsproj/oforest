@@ -1,1 +1,1 @@
-true: thread, package(pads,forest,pads.pads_ppx,forest.forest_ppx), warn(-30)
+true: thread, package(pads,forest,pads.pads_ppx,forest.forest_ppx,ppx_let), warn(-30)
