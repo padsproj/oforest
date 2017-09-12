@@ -24,22 +24,24 @@ module PathMap = Map.Make(OrderedPath)
 
 
 type manifest_error = 
+| Dir_Filename_Overlap
 | MD_Missing_Info
 | Opt_MD_Rep_Inconsistency
-| Dir_Filename_Overlap
-| PredicateFail
 | PadsError of Pads.pads_manifest_error
+| PermissionError
+| PredicateFail
 
-let err_to_string (err : manifest_error) : string =
-  match err with
+let error_to_string = function
+  | Dir_Filename_Overlap ->
+     "The directory path indicated in the metadata is currently occupied by a file"
   | MD_Missing_Info -> "Metadata is missing the info 'component'"
   | Opt_MD_Rep_Inconsistency -> "Either the metadata or the rep (but not both) of an option is None"
-  | Dir_Filename_Overlap -> "The directory path indicated in the metadata is currently occupied by a file"
-  | PredicateFail -> "The predicate failed w.r.t. the chosen rep and md."
   | PadsError (Pads.RegexMatchError r) -> Printf.sprintf "Regex %s failed to match" r
   | PadsError( Pads.ListLengthError) -> "List length failed to match"
   | PadsError(Pads.VariantMismatchError) -> "Variant types for rep and md failed to match."
   | PadsError(Pads.ListLengthMismatchError) -> "List length for rep and md failed to match."
+  | PermissionError -> "User does not have write permissions to the given path."
+  | PredicateFail -> "The predicate failed w.r.t. the chosen rep and md."
 
 type file_info = 
     { full_path : filepath; 
@@ -61,10 +63,17 @@ type 'a forest_md =
     data : 'a;
   }
 
-type manifest = 
-  { errors : (filepath * manifest_error) list;
-    storeFunc : ?dirname:filepath -> ?basename:filepath -> unit -> unit;
-    tmppath : filepath }
+type 'a manifest = 
+  {
+    validate: unit -> (filepath * manifest_error) list;
+    (* TODO: See why you need filepath *)
+    commit: unit -> unit; 
+    data: 'a
+  }
+(* TODO: Do I still need any of this 
+   storeFunc : ?dirname:filepath -> ?basename:filepath -> unit -> unit;
+   tmppath : filepath }
+*)
 
 (* Some useful user level functions *)
 
@@ -86,10 +95,10 @@ let sort_comp_path ((rep,md) : 'a list * 'b forest_md list forest_md)
   in
   sort_comprehension comp (rep,md)
 
-let print_mani_errors (mani: manifest) =
+let print_manifest_errors (errors : (filepath * manifest_error) list) =
   List.iter (fun (path,err) -> 
-    Printf.printf "%s: %s\n" path (err_to_string err)
-  ) mani.errors
+    Printf.printf "%s: %s\n" path (error_to_string err)
+  ) errors
     
 let print_md_errors (md: 'a forest_md) =
   List.iter (fun err -> 
@@ -202,19 +211,23 @@ let empty_md (data : 'a) (path : filepath) : 'a forest_md =
 
 let unit_md : (filepath -> unit forest_md) = base_md ()  
 
+(* Safe permission checking and removal *)
+
+let check_exists path =
+  match Core.Sys.file_exists path  with
+  | `Yes -> true
+  | _ -> false
+
+let check_writeable path =
+  match Core.Unix.access path [`Write] with
+  | Result.Ok _ -> true
+  | _ -> false
+  
 (* Loadings and Storing primitives *)
     
-let store (mani : manifest) : unit = 
-  let _ = mani.storeFunc () in
-  try
-    Unix.rmdir mani.tmppath
-  with _ -> ()
-    
-let store_at (mani : manifest) (path: filepath) : unit =  
-  let _ = mani.storeFunc ~dirname:(Filename.dirname path) ~basename:(Filename.basename path) () in
-  try
-    Unix.rmdir mani.tmppath
-  with _ -> ()
+let validate (manifest : 'a manifest) : (filepath * manifest_error) list = manifest.validate ()
+  
+let commit (manifest: 'a manifest) : unit = manifest.commit ()
     
 let load_link (path: filepath) : filepath * unit forest_md =
   let currTime = Core.Time.now () in

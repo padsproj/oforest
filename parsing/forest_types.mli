@@ -12,7 +12,7 @@ val pp_loc : Format.formatter -> Location.t -> unit
   
 type filepath = string
 type varname = string
-type aquot = string
+type antiQuotation = string
 type forest_regexp_str = string
 
 (** These are file paths, variable names, quoted OCaml code, and types used to
@@ -34,7 +34,7 @@ type 'a ast = { node : 'a; payload : fPayload; loc : loc; }
 type pathType =
     Constant of loc * filepath
   | Variable of loc * varname
-  | OC_Path of loc * aquot
+  | OC_Path of loc * antiQuotation
 
 (** The possible ways of specifying paths (either as a constant string, a
     variable, or using an OCaml expression that evaluates to a string) *)
@@ -42,13 +42,13 @@ type pathType =
 type forest_regex =
     Glob of loc * forest_regexp_str
   | Regex of loc * forest_regexp_str
-type gen = Matches of loc * forest_regex | InList of loc * aquot
-type predOrGen = Guard of loc * aquot | Generator of loc * varname * gen
+type generator = Matches of loc * forest_regex | InList of loc * antiQuotation
+type qualifier = Guard of loc * antiQuotation | Generator of loc * varname * generator
 type compType = Map | List
 
 (** These four types deal with comprehensions. [compType] determines whether
-    it's a map or a list, [predOrGen] specifies Guards and Generators (and are
-    mostly in a list), gen specifies types of generators, and forest_regex specifies
+    it's a map or a list, [qualifier] specifies Guards and Generators (and are
+    mostly in a list), generator specifies types of generators, and forest_regex specifies
     what type of regular expressions to use. *)
     
 type t_node =
@@ -90,9 +90,9 @@ and forest_node =
   | Link
   | Option of forest_node ast
   | Directory of (varname * forest_node ast) list
-  | Comprehension of compType * forest_node ast * predOrGen list
+  | Comprehension of compType * forest_node ast * qualifier list
   | PathExp of pathType * forest_node ast
-  | Predicate of forest_node ast * aquot
+  | Predicate of forest_node ast * antiQuotation
 
 (** These three types are the main AST nodes and specify Type ASTs, Skin ASTs,
     and Forest ASTs respectively. *)

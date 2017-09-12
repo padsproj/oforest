@@ -68,7 +68,7 @@ let rec add_lineI cur nMax =
       load cur >>= fun ((r,r_md) : (universal_inc_rep * universal_inc_md)) ->
       let r = {r with asc = (List.map (fun s ->Bytes.cat s "\nAdded Line!") r.asc)} in
       manifest cur (r,r_md) >>= fun mani ->
-      let _ = if List.length mani.errors > 0 then Forest.print_mani_errors mani else store mani in
+      let _ = if List.length mani.errors > 0 then Forest.print_manifest_errors mani else store mani in
       List.fold_left (fun acc d -> 
         add_lineInternal d (n+1) >>= fun _ ->
         acc                          
@@ -89,7 +89,7 @@ let rec remove_lineI cur nMax =
       ) r.asc)}
       in
       manifest cur (r,r_md) >>= fun mani ->
-      let _ = if List.length mani.errors > 0 then Forest.print_mani_errors mani else store mani in
+      let _ = if List.length mani.errors > 0 then Forest.print_manifest_errors mani else store mani in
       List.fold_left (fun acc d -> 
         remove_lineInternal d (n+1) >>= fun _ ->
         acc                          

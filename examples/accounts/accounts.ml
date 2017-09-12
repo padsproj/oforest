@@ -89,7 +89,7 @@ let withdraw client amount =
     manifest client (new_crep, cmd) >>= fun mani ->
     if List.length mani.errors > 0
     then
-      let _ = Forest.print_mani_errors mani in
+      let _ = Forest.print_manifest_errors mani in
       return ()
     else
       return @@ store mani

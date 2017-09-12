@@ -114,7 +114,7 @@ let fresh () =
   Printf.sprintf "forest_%d" !fresh_cell
 
 (* Forest Name functions *)
-let rep_name = Printf.sprintf "%s_rep"
+let representation_name = Printf.sprintf "%s_rep"
 let md_name = Printf.sprintf "%s_md"
 let load_name = Printf.sprintf "%s_load"
 let list_name =  Printf.sprintf "%s_list"
@@ -124,10 +124,11 @@ let new_name =  Printf.sprintf "%s_new"
 let new_nameR =  Printf.sprintf "%s_newRec"
 let cost_name =  Printf.sprintf "%s_cost"
 let manifest_name = Printf.sprintf "%s_manifest"
+let empty_manifest_name = Printf.sprintf "%s_empty_manifest"
 let ucur_name =  Printf.sprintf "%s_ucur"
 
 (* Pads Name functions *)
-let pads_rep_name = rep_name
+let pads_representation_name = representation_name
 let pads_md_name = md_name
 let pads_parse_name = Printf.sprintf "%s_parse"
 let pads_manifest_name = Printf.sprintf "%s_manifest"

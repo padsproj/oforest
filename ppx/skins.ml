@@ -1,5 +1,5 @@
 open Forest_types
-open Utility
+open Forest_utility
 
 (* Helper functions *)
 let rec rec_replace (oldX : varname) (newX: varname) (e: forest_node ast) : forest_node ast =
@@ -166,7 +166,7 @@ let rec typeofH (h : skin_node ast) : (t_node ast)=
   | HDirFun(x,h)   -> TDirFun(x,typeofH h)
 
   | HVar(x)       ->
-    if Hashtbl.mem Utility.skinTbl x
+    if Hashtbl.mem skinTbl x
     then let h = Hashtbl.find skinTbl x in
          (typeofH h).node
     else
@@ -178,7 +178,7 @@ let rec evalSkin loc (h : skin_node ast) (f : forest_node ast) : forest_node ast
   let es = evalSkin in
   match h.node with
   | HVar(x)       ->
-    if Hashtbl.mem Utility.skinTbl x
+    if Hashtbl.mem skinTbl x
     then let h = Hashtbl.find skinTbl x in
          es h f
     else

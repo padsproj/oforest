@@ -1,4 +1,4 @@
-(** Utility defines a number of global variables and functions mainly used by
+(** Forest_utility defines a number of global variables and functions mainly used by
     Ppx_forest_lib and skins.
     
     Uses Forest_types, Asttypes, Parsetree, and Ast_helper.    
@@ -86,7 +86,7 @@ val fresh : unit -> string
 
 (** Gets a fresh forest identifier *)
   
-val rep_name : string -> string
+val representation_name : string -> string
 val md_name : string -> string
 val load_name : string -> string
 val list_name : string -> string
@@ -96,8 +96,9 @@ val new_name : string -> string
 val new_nameR : string -> string
 val cost_name : string -> string
 val manifest_name : string -> string
+val empty_manifest_name : string -> string
 val ucur_name : string -> string
-val pads_rep_name : string -> string
+val pads_representation_name : string -> string
 val pads_md_name : string -> string
 val pads_parse_name : string -> string
 val pads_manifest_name : string -> string

@@ -34,13 +34,14 @@ module PathMap : Map.S with type key = OrderedPath.t
   
 (** These modules are used for map comprehensions *)
 
+  
 type manifest_error = 
+| Dir_Filename_Overlap
 | MD_Missing_Info
 | Opt_MD_Rep_Inconsistency
-| Dir_Filename_Overlap
-| PredicateFail
 | PadsError of Pads.pads_manifest_error
-
+| PermissionError
+| PredicateFail
 
 (** These describe the possible errors that can occur when generating
     a manifest *)
@@ -73,10 +74,13 @@ type 'a forest_md =
     level specification, the time it took to perform the load as well
     as similar auxiliary data for sub specifications. *)
 
-type manifest = 
-  { errors : (filepath * manifest_error) list;
-    storeFunc : ?dirname:filepath -> ?basename:filepath -> unit -> unit;
-    tmppath : filepath }
+
+type 'a manifest = 
+  {
+    validate: unit -> (filepath * manifest_error) list; (* Validates the correctness of the write *)
+    commit: unit -> unit; (* Commits changes to the standard file system *)
+    data: 'a (* Stores sub manifests *)
+  }
 
 (** Manifests are created prior to storing to determine what errors we
     will run into trying to store the specification. It contains a
@@ -87,11 +91,11 @@ type manifest =
 
 (** {2 Helper functions} *)
     
-val err_to_string : manifest_error -> string
+val error_to_string : manifest_error -> string
 
 (** [err_to_string] turns a manifest error into a string *)
 
-val print_mani_errors : manifest -> unit
+val print_manifest_errors : (filepath * manifest_error) list -> unit
 val print_md_errors : 'a forest_md -> unit
 val exit_on_error : 'a forest_md -> unit
 
@@ -170,11 +174,16 @@ val unit_md : filepath -> unit forest_md
     ([empty_md]). The 'a is the data from
     sub-specifications. [unit_md] just calls [base_md] with unit. *)
 
+(** {2 File system helpers} *)
+
+  
+val check_exists: filepath -> bool
+val check_writeable: filepath -> bool
   
 (** {2 Primitive Load/Store} *)
 
-val store : manifest -> unit
-val store_at : manifest -> filepath -> unit
+val validate : 'a manifest -> (filepath * manifest_error) list
+val commit : 'a manifest -> unit
 
 (** These functions take a manifest and execute the store
     function. [store_at] also allows the user to specify a path to store

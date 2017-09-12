@@ -96,7 +96,7 @@ let rec add_lineI cur =
   load cur >>= fun ((r,r_md) : (universal_inc_rep * universal_inc_md)) ->
   let r = {r with asc = (List.map (fun s ->Bytes.cat s "\nAdded Line!") r.asc)} in
   manifest cur (r,r_md) >>= fun mani ->
-  let _ = if List.length mani.errors > 0 then print_mani_errors mani else store mani in
+  let _ = if List.length mani.errors > 0 then print_manifest_errors mani else store mani in
   List.fold_left (fun acc d ->
     add_lineI d >>= fun _ ->
     acc) (return ()) r.dir
@@ -110,7 +110,7 @@ let rec remove_linesI cur =
   ) r.asc)}
   in
   manifest cur (r,r_md) >>= fun mani ->
-  let _ = if List.length mani.errors > 0 then print_mani_errors mani else store mani in
+  let _ = if List.length mani.errors > 0 then print_manifest_errors mani else store mani in
   List.fold_left (fun acc d ->
     remove_linesI d >>= fun _ ->
     acc) (return ()) r.dir

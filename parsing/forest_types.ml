@@ -4,7 +4,7 @@ let pp_loc = Location.print_loc
 
 type filepath = string [@@deriving show]
 type varname = string [@@deriving show]
-type aquot = string [@@deriving show]
+type antiQuotation = string [@@deriving show]
 type forest_regexp_str = string [@@deriving show]
 
 type fPayload =
@@ -22,19 +22,19 @@ type 'a ast =
 type pathType =
 | Constant of loc * filepath
 | Variable of loc * varname
-| OC_Path of loc * aquot [@@deriving show]
+| OC_Path of loc * antiQuotation [@@deriving show]
 
 type forest_regex =
 | Glob of loc * forest_regexp_str
 | Regex of loc * forest_regexp_str [@@deriving show]
 
-type gen =
+type generator =
 | Matches of loc * forest_regex
-| InList of loc * aquot [@@deriving show]
+| InList of loc * antiQuotation [@@deriving show]
 
-type predOrGen =
-| Guard of loc * aquot
-| Generator of loc * varname * gen [@@deriving show]
+type qualifier =
+| Guard of loc * antiQuotation
+| Generator of loc * varname * generator [@@deriving show]
 
 type compType =
 | Map
@@ -81,9 +81,9 @@ and forest_node =
 | Link 
 | Option of forest_node ast 
 | Directory of (varname * forest_node ast) list 
-| Comprehension of compType * forest_node ast * predOrGen list
+| Comprehension of compType * forest_node ast * qualifier list
 | PathExp of pathType * forest_node ast
-| Predicate of forest_node ast * aquot [@@deriving show]
+| Predicate of forest_node ast * antiQuotation [@@deriving show]
 
 
 let mk_p_ast (loc : loc) (payload : fPayload) (node : 'a) : 'a ast = 

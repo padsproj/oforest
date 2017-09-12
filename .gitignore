@@ -27,6 +27,9 @@ setup.log
 setup.ml
 myocamlbuild.ml
 
+# Emacs crash files
+\#*\#
+
 # Scripts
 compileForest.sh
 desugar.sh

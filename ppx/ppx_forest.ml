@@ -4,7 +4,7 @@ open Asttypes
 open Parsetree
 open Longident
 open Location
-open Utility
+open Forest_utility
 
 
 let forest_mapper argv =
@@ -21,14 +21,14 @@ let forest_mapper argv =
             (* fstr = Forest descriptions
              * pstr_loc = Location of description*)
            let init = 
-             if !Utility.firstDef
+             if !firstDef
              then
-               let _ = Utility.firstDef := false in
+               let _ = firstDef := false in
                Ppx_forest_lib.init pstr_loc
              else []
            in
 	  let forest_ast = Forest_parser_helper.forest_parse_string pexp_loc fstr in
-	  let _ = List.iter (fun (v,s) -> Hashtbl.add Utility.forestTbl v s) forest_ast in
+	  let _ = List.iter (fun (v,s) -> Hashtbl.add forestTbl v s) forest_ast in
           let ocaml_asts : Parsetree.structure = Ppx_forest_lib.def_generator pstr_loc forest_ast in
           ocaml_asts :: init :: acc
             
@@ -39,7 +39,7 @@ let forest_mapper argv =
              ),_)
           ; pstr_loc} -> 
 	   let skin_ast = Forest_parser_helper.skin_parse_string pexp_loc fstr in
-	   let _ = List.iter (fun (v,s) -> Hashtbl.add Utility.skinTbl v s) skin_ast in
+	   let _ = List.iter (fun (v,s) -> Hashtbl.add skinTbl v s) skin_ast in
 	   acc
              
          (* Rest is kept the same*)

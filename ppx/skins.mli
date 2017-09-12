@@ -1,5 +1,5 @@
 (** Skins defines all the functions related to skins and skinning
-    Uses Forest_types and Utility
+    Uses Forest_types and Forest_utility
 *)
 
 (** {2 Helper Functions} *)

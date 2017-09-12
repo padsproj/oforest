@@ -69,9 +69,9 @@
 %type <Forest_types.forest_node Forest_types.ast> f_ast f_cons f_path_ast f_bast f_cons_ast f_last
 %type <Forest_types.pathType> path_typ
 %type <Forest_types.compType> comp_type
-%type <Forest_types.predOrGen> p_or_g
+%type <Forest_types.qualifier> qualifier
 %type <Forest_types.forest_regex> match_statement
-%type <Forest_types.gen> gen_statement
+%type <Forest_types.generator> generator_statement
 %type <Forest_types.varname * Forest_types.forest_node Forest_types.ast> direntry
 
 (* Skins *)
@@ -125,7 +125,7 @@ f_last:
   | DIR; LBRACE; list = separated_nonempty_list(SEMICOLON,direntry); RBRACE (*TODO: Figure out a way to allow a final ; *)
      { let l = make_loc $startpos($1) $endpos($4) in
        mk_ast l @@ Directory (list) }
-  | c = comp_type ; LBRACK; f = f_ast; BAR ; pl = separated_nonempty_list(COMMA,p_or_g); RBRACK
+  | c = comp_type ; LBRACK; f = f_ast; BAR ; pl = separated_nonempty_list(COMMA,qualifier); RBRACK
      { let l = make_loc $symbolstartpos $endpos($6) in (*TODO: Make sure you want symbolstartpos here *)
        mk_ast l @@ Comprehension (c,f,pl) }
   | LANGB; f = f_ast; RANGB 
@@ -168,8 +168,8 @@ comp_type:
   | MAP { Map }
   | (* empty *) { List }
 
-p_or_g:
-  | x = ID ; BARROW ; g = gen_statement 
+qualifier:
+  | x = ID ; BARROW ; g = generator_statement 
      { let l = make_loc $startpos(x) $endpos(g) in
        Generator (l,x,g) }
   | AQUOT 
@@ -177,7 +177,7 @@ p_or_g:
         Guard(l,$1) }
   ;
 
-gen_statement:
+generator_statement:
   | MATCHES; reg = match_statement 
      { let l = make_loc $startpos($1) $endpos(reg) in
        Matches(l,reg) }
