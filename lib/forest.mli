@@ -36,9 +36,10 @@ module PathMap : Map.S with type key = OrderedPath.t
 
   
 type manifest_error = 
-| Dir_Filename_Overlap
-| MD_Missing_Info
-| Opt_MD_Rep_Inconsistency
+| ComprehensionUnequalLength
+| DirFilenameOverlap
+| MDMissingInfo
+| OptMDRepInconsistency
 | PadsError of Pads.pads_manifest_error
 | PermissionError
 | PredicateFail

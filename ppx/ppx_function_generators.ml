@@ -689,13 +689,24 @@ and empty_manifest_generator expression =
       { validate; commit; data = () }
      ][@metaloc location]
   | Var(specificationName) ->  exp_make_ident location (empty_manifest_name specificationName)
-  | Pads(specificationName) ->  failwith "TODO: Not implemented"
+  | Pads(specificationName) ->
+       [%expr
+        let baseName = Filename.basename info.full_path in
+        let padsManifest =
+          [%e exp_make_ident location (pads_empty_manifest_name specificationName)]
+        in
+        let commit () = () in
+        let validate () =
+          List.map (fun error -> (baseName, PadsError error)) padsManifest.pads_man_errors
+        in
+        { validate; commit; data = manifest}
+       ][@metaloc location]
   | PathExp(_, forestAst)
   | Predicate(forestAst, _)
-  | Url (forestAst)
-  | Thunked (forestAst) 
-  | Option (forestAst) -> empty_manifest_generator forestAst
-  | Directory (entries) ->
+  | Url(forestAst)
+  | Thunked(forestAst) 
+  | Option(forestAst) -> empty_manifest_generator forestAst
+  | Directory(entries) ->
      let manifestAssignments =
        List.map (fun (label,_) -> (manifest_name label),(manifest_name label)) entries
      in
@@ -741,6 +752,7 @@ and empty_manifest_generator expression =
   | Comprehension(comprehensionType, _, _) ->
      begin
        match comprehensionType with
+       (* TODO (jdilorenzo): Almost certainly needs to be wrapped in a manifest *)
        | Map ->  [%expr PathMap.empty][@metaloc location]
        | List -> [%expr []][@metaloc location]
      end
@@ -765,9 +777,6 @@ and manifest_function_generator inside expression vName =
     | PathExp(ptype,e) ->
        [%expr [%e manifest_function_generator true e vName] ~swapDirectory:swapDirectory (rep,md)]
          [@metaloc location] 
-
-
-
     | Url(forestAst) -> 
        [%expr
         let manifest =
@@ -813,12 +822,14 @@ and manifest_function_generator inside expression vName =
         in
         let validate () =
           let errors = manifest.validate () in
-          (* TODO (jdilorenzo): Pretty sure this won't work out of the box.
-             Need to figure out how to make everything I care about be in-scope. *)
+          begin [@warning "-26"]
+          let (this,this_md) = (rep,md) in
+          let this_att = info in
           if [%e exp_make_ocaml location predicate] then
             errors
           else
             [basename, PredicateFail] :: errors
+          end
         in
         { manifest with validate }
        ][@metaloc location]
@@ -879,7 +890,7 @@ and manifest_function_generator inside expression vName =
            [%e manifest_function_generator true forestAst vName] ~swapDirectory:swapDirectory (r, m)
         | (Some r, None) ->
            let commit () = () in
-           let validate () = [(baseName, Opt_MD_Rep_Inconsistency)] in
+           let validate () = [(baseName, OptMDRepInconsistency)] in
            let manifest = [%e empty_manifest_generator forestAst] in
            { manifest with validate; commit }
        ][@metaloc location]
@@ -893,7 +904,7 @@ and manifest_function_generator inside expression vName =
           let validate () =
             let errorList = 
               match Core.Sys.file_exists storePath, Core.Sys.is_directory storePath with
-              | `Yes, `No -> [(baseName,Dir_Filename_Overlap)]
+              | `Yes, `No -> [(baseName,DirFilenameOverlap)]
               | _ -> []
             in
             [%e List.fold_right
@@ -962,39 +973,48 @@ and manifest_function_generator inside expression vName =
             ) entries finalManifest]
        ][@metaloc location]
          
-    | Comprehension(comprehensionType, forestAst, qualifiers) -> failwith "TODO: Not implemented"
-    (*
-    | Comprehension(map,e,plist) -> 
-         let exp =
+    | Comprehension(comprehensionType, forestAst, _) -> 
+       let manifestExpression =
          [%expr 
-          let dirname = Filename.dirname info.full_path in
-          let basename = Filename.basename info.full_path in
-          let maniList = List.map ([%e manifest_function_generator true e vName] ~swapDirectory:swapDirectory) (List.combine repList mdList) in
-          let errlist = List.fold_left (fun acc m -> m.errors @ acc) [] maniList in
-          let sfunc ?dirname:(dirname=dirname) ?basename:(basename=basename) () = 
-            let storePath = Filename.concat dirname basename in
-            [%e 
-             let e,loc = get_NaL e in
-             match e with
-            | Comprehension(_) -> 
-               [%expr List.iter (fun m -> m.storeFunc ~dirname:dirname ~basename:basename ()) maniList][@metaloc loc]
-            | _ -> 
-               [%expr List.iter (fun m -> m.storeFunc ~dirname:storePath ()) maniList][@metaloc loc]
-            ]
+          let storePath = info.full_path in
+          let zipped =
+            match List.zip reps mds with
+            | Some list -> list
+            | None -> []
           in
-          {errors = errlist; storeFunc = sfunc; swapPath = swapDirectory} 
-         ][@metaloc loc]
-         in
-         if map = Map
-         then [%expr 
-               let repList = List.map snd (PathMap.bindings rep) in
-               let mdList = List.map snd (PathMap.bindings md.data) in
-               [%e exp]][@metaloc loc]
-         else [%expr 
-               let repList = rep in
-               let mdList = md.data in
-               [%e exp]][@metaloc loc]
-  *)       
+          let manifests =
+            List.map
+              ([%e manifest_function_generator true forestAst vName] ~swapDirectory:swapDirectory)
+              zipped
+          in
+          let validate () =
+            let errors =
+              if List.length reps = List.length mds then
+                []
+              else
+                [(baseName,ComprehensionUnequalLength)]
+            in
+            List.fold_left
+              (fun errorAccumulator manifest -> manifest.validate () @ errorAccumulator)
+              errors
+              manifests
+          in
+          let commit () =
+            List.iter (fun manifest -> manifest.commit ()) manifests
+          in
+          { validate; commit; data = manifests }
+         ][@metaloc location]
+       in
+       (* TODO (jdilorenzo): This is gonna need to produce a map too... *)
+       if comprehensionType = Map
+       then [%expr 
+             let reps = List.map snd (PathMap.bindings rep) in
+             let mds = List.map snd (PathMap.bindings md.data) in
+             [%e manifestExpression]][@metaloc location]
+       else [%expr 
+             let reps = rep in
+             let mds = md.data in
+             [%e manifestExpression]][@metaloc location]
     | SkinApp(_,_) ->
        raise_loc_err
          location
@@ -1009,7 +1029,7 @@ and manifest_function_generator inside expression vName =
            match md.info with
            | None ->
               let manifest = [%e empty_manifest_generator expression] in
-              let validate () = manifest.validate () @ [("",MD_Missing_Info)] in
+              let validate () = manifest.validate () @ [("",MDMissingInfo)] in
               { manifest with validate }
            | Some(info) -> [%e mainExp]
        ][@metaloc location]

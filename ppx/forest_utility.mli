@@ -102,6 +102,7 @@ val pads_representation_name : string -> string
 val pads_md_name : string -> string
 val pads_parse_name : string -> string
 val pads_manifest_name : string -> string
+val pads_empty_manifest_name : string -> string
 
 (** Defines the names of various types and functions based on the name of the
     description *)

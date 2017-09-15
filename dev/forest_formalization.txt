@@ -1,0 +1,117 @@
+=====================
+iFOREST FORMALIZATION
+=====================
+
+-- Specification specific --
+
+Specification s ::= file | link | e :: s | <x:s1,s2> | [s|x in e]
+                    | p(e) | s? | <s> | s @ h
+
+t_s = Type of the representation of s
+m_s = Type of the metadata of s
+f_s = Type of the manifest of s
+
+new_s : path -> (t_s, m_s, f_s) cursor
+
+-- General --
+
+type ('a,'b,'c) cursor =
+  (
+     unit -> ('a, 'b),
+     unit -> ('a, 'b) -> 'c
+  )
+'a metadata
+type 'a manifest =
+  {
+    validate: unit -> bool;
+    commit: unit -> unit;
+    data: 'a;
+  }
+
+load: ('a,'b,'c) cursor -> ('a,'b)
+manifest: ('a,'b,'c) cursor -> ('a,'b) -> 'c
+
+validate: 'a manifest -> bool
+commit: 'a manifest -> unit
+
+
+-- Examples --
+
+new_file =
+    fun path ->
+     (fun () -> load_file path,
+      fun (s,md) ->
+          { validate = fun () -> true;
+            commit = fun () -> store_file path s;
+            data = ();
+          }
+     )
+         
+new_<x:s1,s2> = 
+    fun path ->
+     (fun () ->
+         let c1 = new_s1 path in
+         let (x,x_md) = load c1 in
+         let c2 = new_s2 path in
+         let (s2,s2_md) = load c2 in
+         ((x,s2),(x_md,s2_md)),
+      fun ((x,s2),(x_md,s2_md)) ->
+         let c1 = new_s1 path in
+         let c2 = new_s2 path in
+         let x_manifest = manifest c1 (x,x_md) in
+         let s2_manifest = manifest c2 (s2,s2_md) in
+         { validate = fun () -> validate x_manifest && validate s2_manifest;
+           commit = (fun () -> commit x_manifest; commit s2_manifest);
+           data = (x_manifest, s2_manifest);
+         }
+     )
+
+new_<s> =
+    fun path ->
+     (fun () -> (new_s path, mk_md ()),
+      fun (c,md) -> ???
+     )
+
+===================
+MANIFEST ENRICHMENT
+===================
+
+-- General additions --
+
+'a loc - A location
+
+\sigma: 'a loc -> 'a + () - A partial global store
+
+hash: ('a,'b,'c) cursor -> 'c loc
+
+:= : ('a loc -> 'a + ()) -> 'a loc -> 'a -> () - Assignment
+(usage is: \sigma[l] := v)
+
+-- Delayed manifests --
+
+new_<s> =
+  fun path ->
+    let (l_f, m_f) as cur = new_s path in
+    let m_f =
+      fun (r,md) ->
+        let manifest = m_f (r,md) in
+        \sigma[hash cur] := manifest;
+        manifest
+    in
+    (fun () -> ((l_f, m_f), mk_md ()),
+     fun (c,_) ->
+       if \sigma(hash cur) = ()
+       then empty_manifest_s
+       else \sigma(hash cur)
+     )
+  
+All other new_s remain unchanged
+
+-- Nice properties --
+
+1. We only need to change the definition of the delay
+2. We get the manifest we want
+3. Doesn't break if we put in a cursor from a different new_<s>, but
+also does the exact same thing it would've in the original...
+4. Pretty much implementable as is
+

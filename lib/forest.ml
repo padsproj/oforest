@@ -24,22 +24,26 @@ module PathMap = Map.Make(OrderedPath)
 
 
 type manifest_error = 
-| Dir_Filename_Overlap
-| MD_Missing_Info
-| Opt_MD_Rep_Inconsistency
+| ComprehensionUnequalLength
+| DirFilenameOverlap
+| MDMissingInfo
+| OptMDRepInconsistency
 | PadsError of Pads.pads_manifest_error
 | PermissionError
 | PredicateFail
 
 let error_to_string = function
-  | Dir_Filename_Overlap ->
+  | ComprehensionUnequalLength ->
+     "The representation and the metadata lists are of different length"
+  | DirFilenameOverlap ->
      "The directory path indicated in the metadata is currently occupied by a file"
-  | MD_Missing_Info -> "Metadata is missing the info 'component'"
-  | Opt_MD_Rep_Inconsistency -> "Either the metadata or the rep (but not both) of an option is None"
-  | PadsError (Pads.RegexMatchError r) -> Printf.sprintf "Regex %s failed to match" r
-  | PadsError( Pads.ListLengthError) -> "List length failed to match"
-  | PadsError(Pads.VariantMismatchError) -> "Variant types for rep and md failed to match."
+  | MDMissingInfo -> "Metadata is missing the info 'component'"
+  | OptMDRepInconsistency -> "Either the metadata or the rep (but not both) of an option is None"
+  | PadsError(Pads.EmptyManifestError) -> "PADS Manifest is empty"
+  | PadsError(Pads.ListLengthError) -> "List length failed to match"
   | PadsError(Pads.ListLengthMismatchError) -> "List length for rep and md failed to match."
+  | PadsError(Pads.RegexMatchError r) -> Printf.sprintf "Regex %s failed to match" r
+  | PadsError(Pads.VariantMismatchError) -> "Variant types for rep and md failed to match."
   | PermissionError -> "User does not have write permissions to the given path."
   | PredicateFail -> "The predicate failed w.r.t. the chosen rep and md."
 

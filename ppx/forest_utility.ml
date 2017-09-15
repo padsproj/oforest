@@ -131,4 +131,5 @@ let ucur_name =  Printf.sprintf "%s_ucur"
 let pads_representation_name = representation_name
 let pads_md_name = md_name
 let pads_parse_name = Printf.sprintf "%s_parse"
-let pads_manifest_name = Printf.sprintf "%s_manifest"
+let pads_manifest_name = manifest_name
+let pads_empty_manifest_name = empty_manifest_name
