@@ -9,15 +9,17 @@ open Ppx_function_generators
 (* Inititalization step *)
 
 let init loc = 
-  let cursortype = [%type: (unit -> ('a * 'b * CursorMonad.cost)) * (('a * 'b) -> 'c) ][@metaloc loc] in
+  let cursortype =
+    [%type: (unit -> ('a * 'b * CursorMonad.cost)) * (('a * 'b) -> Forest.manifest) * int ][@metaloc loc]
+  in
   (* Needs to return a costset -> ('b,costset) *)
-  let load_cursor = [%expr let (loadf,_) = cursor in 
+  let load_cursor = [%expr let (loadf,_,_) = cursor in 
                         fun c -> let (r,m,nc) = loadf () in
                                   ((r,m),CursorMonad.cost_op c nc)
                  ][@metaloc loc] 
   in
   let manifest_cursor = [%expr 
-    let (_,manifest) = cursor in
+    let (_,manifest,_) = cursor in
     (fun c -> (manifest (rep,md),c))
   ][@metaloc loc]
   in
@@ -27,12 +29,15 @@ let init loc =
    module CursorMonad = Forest.CursorMonad(CostMon)
    open CursorMonad
    open CursorMonad.Let_syntax
-   type ('a,'b,'c) cursor = [%t cursortype]
-   let load (cursor : ('a, 'b, 'c) cursor) : ('a * 'b) CursorMonad.t = [%e load_cursor]
+   type ('a,'b) cursor = [%t cursortype]
+   let load (cursor : ('a, 'b) cursor) : ('a * 'b) CursorMonad.t = [%e load_cursor]
    let manifest
-       (cursor : ('a, 'b, 'c) cursor)
+       (cursor : ('a, 'b) cursor)
        ((rep,md) : ('a * 'b))
-       : 'c CursorMonad.t = [%e manifest_cursor]
+       : Forest.manifest CursorMonad.t = [%e manifest_cursor]
+   let get_cursor_id ((_,_,id) : ('a, 'b) cursor) = id
+   let cursor_id_to_manifest_table : (int, Forest.manifest) Hashtbl.t = Int.Table.create ()
+   let cursor_id = ref 0
   ][@metaloc loc]
 
 (* Auxiliary functions *)
@@ -195,15 +200,12 @@ let def_generator location (flist : (varname * forest_node ast) list) : structur
     let e = dependency_grapher [] e in
     let representations, representation = representation_type_generator e in 
     let mds, md = md_type_generator e in
-    let manifests, manifest = manifest_type_generator e in
     let representation_declaration =
       typ_make_type_decl location (representation_name name) ~manifest:representation
     in
     let md_declaration = typ_make_type_decl location (md_name name) ~manifest:md in
-    let manifest_declaration = typ_make_type_decl location (manifest_name name) ~manifest:manifest in
     let types =
-      mds @ [md_declaration] @ manifests @ [manifest_declaration]
-      @ representations @ [representation_declaration] @ types
+      mds @ [md_declaration] @ representations @ [representation_declaration] @ types
     in
     let load_function_type = 
       [%type: filepath -> 
@@ -214,8 +216,7 @@ let def_generator location (flist : (varname * forest_node ast) list) : structur
     let new_function_type =
       [%type:filepath -> 
             ([%t typ_make_constr location (representation_name name)],
-             [%t typ_make_constr location (md_name name)],
-             [%t typ_make_constr location (manifest_name name)])
+             [%t typ_make_constr location (md_name name)])
               cursor
       ][@metaloc location]
     in
@@ -229,7 +230,7 @@ let def_generator location (flist : (varname * forest_node ast) list) : structur
       [%type: ?swapDirectory:filepath ->
             ([%t typ_make_constr location (representation_name name)]
              * [%t typ_make_constr location (md_name name)])
-            ->  [%t typ_make_constr location (manifest_name name)]
+            ->  Forest.manifest
       ][@metaloc location]
     in
     let costFunction = 
@@ -254,14 +255,7 @@ let def_generator location (flist : (varname * forest_node ast) list) : structur
          fun path -> return ([%e exp_make_ident location (new_nameR name)] path)
       ][@metaloc location]
     in
-    let emptyManifest = 
-      [%stri
-       let ([%p pat_make_var location (empty_manifest_name name)]
-               : [%t typ_make_constr location (manifest_name name)]) =
-         [%e empty_manifest_generator e]
-      ][@metaloc location]
-    in
-    types, emptyManifest :: costFunction :: manifestFunction :: loadFunction :: lets 
+    types, costFunction :: manifestFunction :: loadFunction :: lets 
   in
   let types, lets = List.fold_right def_gen flist ([],[]) in
   (Str.type_ ~loc:location Recursive types) :: lets

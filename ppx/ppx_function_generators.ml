@@ -36,11 +36,17 @@ let rec cost_function_generator (e : forest_node ast) (vName : string) : Parsetr
        ) m.data CursorMonad.cost_id
      ][@metaloc loc]
   | Comprehension(List,e,_) ->
-     [%expr fun (r,m) -> 
-       List.fold_left2 (fun acc r m -> 
-         let c = [%e cost_function_generator e vName] (r,m) in
-         CursorMonad.cost_op acc c
-       )  CursorMonad.cost_id r (m : [%t Typ.var ~loc vName] forest_md).data
+     [%expr fun (r,m) ->
+       let cost = 
+         List.fold2 ~f:(fun acc r m -> 
+           let c = [%e cost_function_generator e vName] (r,m) in
+           CursorMonad.cost_op acc c
+         )  ~init:CursorMonad.cost_id r (m : [%t Typ.var ~loc vName] forest_md).data
+       in
+       match cost with
+       | List.Or_unequal_lengths.Ok c -> c
+       | List.Or_unequal_lengths.Unequal_lengths ->
+          failwith "Comprehension Cost function got representation and metadata lists of unequal length"
      ][@metaloc loc]
   | Directory (entries) -> 
      let field_list = List.fold_left (fun acc (label,e) ->
@@ -77,7 +83,19 @@ and new_function_generator ?first:(first=false) (e: forest_node ast) (vName : st
   match fNode with
   | SkinApp(_,_) -> raise_loc_err loc "new_function_generator: Skin applications should not exist here."
   | Var(x) -> exp_make_ident loc (new_nameR x) 
-  | Thunked(e) -> new_function_generator e vName
+  | Thunked(e) ->
+     [%expr
+         (fun path ->
+           let lf,mf,_ = [%e new_function_generator e vName] path in
+           let id = Forest.fresh_cursor_id cursor_id in
+           let mf (r,m) =
+             let manifest = mf (r,m) in
+             Hashtbl.set cursor_id_to_manifest_table ~key:id ~data:manifest;
+             manifest
+           in
+           (lf,mf,id)
+         )
+     ][@metaloc loc]
   | File
   | Pads(_)
   | Link 
@@ -87,9 +105,9 @@ and new_function_generator ?first:(first=false) (e: forest_node ast) (vName : st
   | Predicate(_,_) 
   | Url(_) 
   | Comprehension(_,_,_) ->
-       [%expr
-           (fun path ->
-             let lfunc () =
+     [%expr         
+         (fun path ->
+        let lfunc () =
                let (rep,md) = 
                  [%e
 		  let final_e = if first then exp_make_ident loc (load_name vName) else load_function_generator e vName in  
@@ -108,17 +126,17 @@ and new_function_generator ?first:(first=false) (e: forest_node ast) (vName : st
                in
                (rep,md,cost)
              in
-             let manif (r,m) = 
+             let manifest (r,m) = 
                let manifest = 
                  [%e if first then exp_make_ident loc (manifest_name vName) else manifest_function_generator true e vName] (r,m)
                in
                manifest 
              in
-             (lfunc,manif))
+             (lfunc,manifest,-1))
        ][@metaloc loc]
 
-and load_function_generator (e: forest_node ast) (vName : string) : Parsetree.expression = 
-  let e,loc = get_NaL e in
+and load_function_generator (fast: forest_node ast) (vName : string) : Parsetree.expression = 
+  let e,loc = get_NaL fast in
   let add_timing e = 
     [%expr fun path -> let currTime = Core.Time.now () in 
                         let (r,m) = [%e e] in
@@ -152,11 +170,20 @@ and load_function_generator (e: forest_node ast) (vName : string) : Parsetree.ex
      add_timing
        (match ptype with
        | Constant(loc,pathi) -> 
-          [%expr [%e load_function_generator e vName] (Filename.concat path [%e exp_make_string loc pathi])][@metaloc loc]
+          [%expr
+              [%e load_function_generator e vName]
+              (Filename.concat path [%e exp_make_string loc pathi])
+          ][@metaloc loc]
        | Variable(loc,pathi) ->
-          [%expr [%e load_function_generator e vName] (Filename.concat path [%e exp_make_ident loc pathi])][@metaloc loc]
+          [%expr
+              [%e load_function_generator e vName]
+              (Filename.concat path [%e exp_make_ident loc pathi])
+          ][@metaloc loc]
        | OC_Path(loc,pathi) ->
-          [%expr [%e load_function_generator e vName] (Filename.concat path [%e exp_make_ocaml loc pathi])][@metaloc loc]
+          [%expr
+              [%e load_function_generator e vName]
+              (Filename.concat path [%e exp_make_ocaml loc pathi])
+          ][@metaloc loc]
        )
   | Predicate(e,b) ->
     add_timing
@@ -244,11 +271,17 @@ and load_function_generator (e: forest_node ast) (vName : string) : Parsetree.ex
      let make_exp pg (vacc,eacc) =
        match pg with
        | Generator(loc,mvar,Matches(locm,reg)) ->
-          let cexpr = [%expr let [%p pat_make_var loc (list_name mvar)] =  List.fold_left (fun acc fname ->
-            if regMatch fname 
-            then fname :: acc 
-            else acc
-          ) [] fileList in [%e eacc]][@metaloc loc]
+          let cexpr =
+            [%expr
+             let [%p pat_make_var loc (list_name mvar)] =
+               List.fold_left ~f:(fun acc fname ->
+                 if regMatch fname 
+                 then fname :: acc 
+                 else acc
+               ) ~init:[] fileList
+             in
+             [%e eacc]
+            ][@metaloc loc]
           in
           (mvar::vacc,
             match reg with
@@ -259,7 +292,12 @@ and load_function_generator (e: forest_node ast) (vName : string) : Parsetree.ex
           )
        | Generator(loc,mvar,InList(locm, lst)) -> (* lst should be an expression that evaluates to a list *)
           (mvar::vacc,
-           [%expr let [%p pat_make_var loc (list_name mvar)] = List.rev [%e exp_make_ocaml locm lst] in [%e eacc]][@metaloc loc])
+           [%expr
+            let [%p pat_make_var loc (list_name mvar)] =
+              List.rev [%e exp_make_ocaml locm lst]
+            in
+            [%e eacc]
+           ][@metaloc loc])
        | Guard(loc,aq) ->         
 	  let depVars = List.fold_left (fun acc bvar ->
             if find_ident_in_str (att_name bvar) aq
@@ -305,19 +343,33 @@ and load_function_generator (e: forest_node ast) (vName : string) : Parsetree.ex
 	          let att = find_ident_in_str (att_name bvar) aq in
 	          let rep = find_ident_in_str bvar aq in
 	          let md = find_ident_in_str (md_name bvar) aq in
-	          let newExp = if att
-		    then [%expr let [%p pat_make_var loc (att_name bvar)] = 
-                                  Forest.get_att_info (Filename.concat path [%e exp_make_ident loc bvar]) 
-                                in [%e accEx]][@metaloc loc]
+	          let newExp =
+                    if att
+		    then [%expr
+                          let [%p pat_make_var loc (att_name bvar)] = 
+                            Forest.get_att_info (Filename.concat path [%e exp_make_ident loc bvar]) 
+                          in
+                          [%e accEx]
+                         ][@metaloc loc]
 		    else accEx
 	          in
-                  let names = Pat.tuple ~loc [pat_make_var loc bvar; pat_make_var loc (md_name bvar)] in
-	          let newExp = if rep || md
-		    then [%expr let [%p names] = [%e load_function_generator e vName] path in [%e newExp]][@metaloc loc]
+                  let names =
+                    Pat.tuple ~loc [pat_make_var loc bvar; pat_make_var loc (md_name bvar)]
+                  in
+	          let newExp =
+                    if rep || md
+		    then [%expr
+                          let [%p names] = [%e load_function_generator e vName] path in
+                          [%e newExp]
+                         ][@metaloc loc]
                     else newExp
 	          in
-	          [%expr List.fold_left (fun [%p pAccTuple] [%p pat_make_var loc bvar] -> [%e newExp])
-                      [%e falseTuple] [%e exp_make_ident loc (list_name bvar)]][@metaloc loc]
+	          [%expr
+                      List.fold_left
+                      ~f:(fun [%p pAccTuple] [%p pat_make_var loc bvar] -> [%e newExp])
+                      ~init:[%e falseTuple]
+                      [%e exp_make_ident loc (list_name bvar)]
+                  ][@metaloc loc]
 	        ) ([%expr if [%e exp_make_ocaml loc aq] then [%e trueTuple] else [%e falseTuple] ][@metaloc loc]) depVars
               in
               [%expr let [%p pAccTuple] = [%e emptyAccTuple] in
@@ -351,8 +403,8 @@ and load_function_generator (e: forest_node ast) (vName : string) : Parsetree.ex
          ([%expr let (r,m) = [%e load_e] path in (r::rep,m::md)][@metaloc loc],
           [%expr ([],[]) ][@metaloc loc],
           [%expr (rep,{
-            num_errors = List.fold_left (fun a md -> md.num_errors + a) 0 md; 
-            error_msg =  List.fold_left (fun a md -> md.error_msg @ a) [] md;
+            num_errors = List.fold_left ~f:(fun a md -> md.num_errors + a) ~init:0 md; 
+            error_msg =  List.fold_left ~f:(fun a md -> md.error_msg @ a) ~init:[] md;
             info = Forest.get_md_info path;
             load_time = no_time;
             data = md;
@@ -363,9 +415,12 @@ and load_function_generator (e: forest_node ast) (vName : string) : Parsetree.ex
      *)
     let get_reps_mds_exp = 
         List.fold_right (fun bv expAcc ->
-          [%expr List.fold_left (fun (rep,md) [%p pat_make_var loc bv] ->
-            [%e expAcc]
-          ) [%e initAcc] [%e exp_make_ident loc (list_name bv)]][@metaloc loc])
+          [%expr
+              List.fold_left
+              ~f:(fun (rep,md) [%p pat_make_var loc bv] -> [%e expAcc])
+              ~init:[%e initAcc]
+              [%e exp_make_ident loc (list_name bv)]
+          ][@metaloc loc])
           vlist initExp 
     in
     let _,mid_exp = List.fold_right make_exp 
@@ -395,8 +450,11 @@ and load_function_generator (e: forest_node ast) (vName : string) : Parsetree.ex
               num_errors = md.num_errors + 1}
       in
       (r,newmd) ][@metaloc loc]
-  | Thunked(e) -> 
-     add_timing [%expr ([%e new_function_generator e vName] path,Forest.unit_md path) ][@metaloc loc]
+  | Thunked(_) ->
+     add_timing
+       [%expr
+           ([%e new_function_generator fast vName] path,Forest.unit_md path)
+       ][@metaloc loc]
   | SkinApp(_,_) -> raise_loc_err loc "load_function_generator: Skin applications should not exist here."
 
 
@@ -512,11 +570,18 @@ and uninc_load_function_generator (e: forest_node ast) (vName : string) : Parset
      let make_exp pg (vacc,eacc) =
        match pg with
        | Generator(loc,mvar,Matches(locm,reg)) ->
-          let cexpr = [%expr let [%p pat_make_var loc (list_name mvar)] =  List.fold_left (fun acc fname ->
-            if regMatch fname 
-            then fname :: acc 
-            else acc
-          ) [] fileList in [%e eacc]][@metaloc loc]
+          let cexpr =
+            [%expr
+             let [%p pat_make_var loc (list_name mvar)] =
+               List.fold_left ~f:(fun acc fname ->
+                 if regMatch fname 
+                 then fname :: acc 
+                 else acc
+               )
+                 ~init:[]
+                 fileList
+             in [%e eacc]
+            ][@metaloc loc]
           in
           (mvar::vacc,
             match reg with
@@ -584,8 +649,12 @@ and uninc_load_function_generator (e: forest_node ast) (vName : string) : Parset
 		    then [%expr let [%p names] = [%e uninc_load_function_generator e vName] path in [%e newExp]][@metaloc loc]
                     else newExp
 	          in
-	          [%expr List.fold_left (fun [%p pAccTuple] [%p pat_make_var loc bvar] -> [%e newExp])
-                      [%e falseTuple] [%e exp_make_ident loc (list_name bvar)]][@metaloc loc]
+	          [%expr
+                      List.fold_left
+                      ~f:(fun [%p pAccTuple] [%p pat_make_var loc bvar] -> [%e newExp])
+                      ~init:[%e falseTuple]
+                      [%e exp_make_ident loc (list_name bvar)]
+                  ][@metaloc loc]
 	        ) ([%expr if [%e exp_make_ocaml loc aq] then [%e trueTuple] else [%e falseTuple] ][@metaloc loc]) depVars
               in
               [%expr let [%p pAccTuple] = [%e emptyAccTuple] in
@@ -619,8 +688,8 @@ and uninc_load_function_generator (e: forest_node ast) (vName : string) : Parset
          ([%expr let (r,m) = [%e load_e] path in (r::rep,m::md)][@metaloc loc],
           [%expr ([],[]) ][@metaloc loc],
           [%expr (List.rev rep,{
-            num_errors = List.fold_left (fun a md -> md.num_errors + a) 0 md; 
-            error_msg =  List.fold_left (fun a md -> md.error_msg @ a) [] md;
+            num_errors = List.fold_left ~f:(fun a md -> md.num_errors + a) ~init:0 md; 
+            error_msg =  List.fold_left ~f:(fun a md -> md.error_msg @ a) ~init:[] md;
             info = Forest.get_md_info path;
             load_time = no_time;
             data = List.rev md;
@@ -631,9 +700,12 @@ and uninc_load_function_generator (e: forest_node ast) (vName : string) : Parset
      *)
     let get_reps_mds_exp = 
         List.fold_right (fun bv expAcc ->
-          [%expr List.fold_left (fun (rep,md) [%p pat_make_var loc bv] ->
-            [%e expAcc]
-          ) [%e initAcc] [%e exp_make_ident loc (list_name bv)]][@metaloc loc])
+          [%expr
+              List.fold_left
+              ~f:(fun (rep,md) [%p pat_make_var loc bv] -> [%e expAcc])
+              ~init:[%e initAcc]
+              [%e exp_make_ident loc (list_name bv)]
+          ][@metaloc loc])
           vlist initExp 
     in
     let _,mid_exp = List.fold_right make_exp 
@@ -676,95 +748,17 @@ and uninc_load_function_generator (e: forest_node ast) (vName : string) : Parset
      end
     | SkinApp(_,_) ->
        raise_loc_err loc "load_function_generator: Skin applications should not exist here."
-
-         
-and empty_manifest_generator expression =
-  let forestAst, location = get_NaL expression in
-  match forestAst with
-  | File
-  | Link ->
-     [%expr 
-      let commit () = () in
-      let validate () = [] in
-      { validate; commit; data = () }
-     ][@metaloc location]
-  | Var(specificationName) ->  exp_make_ident location (empty_manifest_name specificationName)
-  | Pads(specificationName) ->
-       [%expr
-        let baseName = Filename.basename info.full_path in
-        let padsManifest =
-          [%e exp_make_ident location (pads_empty_manifest_name specificationName)]
-        in
-        let commit () = () in
-        let validate () =
-          List.map (fun error -> (baseName, PadsError error)) padsManifest.pads_man_errors
-        in
-        { validate; commit; data = manifest}
-       ][@metaloc location]
-  | PathExp(_, forestAst)
-  | Predicate(forestAst, _)
-  | Url(forestAst)
-  | Thunked(forestAst) 
-  | Option(forestAst) -> empty_manifest_generator forestAst
-  | Directory(entries) ->
-     let manifestAssignments =
-       List.map (fun (label,_) -> (manifest_name label),(manifest_name label)) entries
-     in
-     let finalManifest = 
-       [%expr
-        let validate () =
-          [%e List.fold_right
-              (fun (label,_) errorList ->
-                [%expr
-                    [%e exp_make_field_n location (manifest_name label) "validate"]  () @
-                    [%e errorList]
-                ][@metaloc location]
-              )
-              entries
-              [%expr []][@metaloc location]
-          ]
-        in
-        let commit () =
-          [%e List.fold_right
-              (fun (label,_) expressionAccumulator ->
-                [%expr
-                    [%e exp_make_field_n location (manifest_name label) "commit"]  ();
-                 [%e expressionAccumulator]
-                ][@metaloc location]
-              ) entries
-              [%expr ()][@metaloc location]
-          ]
-        in
-        let data = [%e exp_make_record_s location manifestAssignments] in
-        { validate; commit; data }
-       ][@metaloc location]
-     in
-     List.fold_right
-       (fun (label,expression) expressionAccumulator ->
-         let location = get_loc expression in
-         [%expr
-          let [%p pat_make_var location (manifest_name label)] =
-            [%e empty_manifest_generator expression] 
-          in 
-          [%e expressionAccumulator]
-         ][@metaloc location]
-       ) entries finalManifest
-  | Comprehension(comprehensionType, _, _) ->
-     begin
-       match comprehensionType with
-       (* TODO (jdilorenzo): Almost certainly needs to be wrapped in a manifest *)
-       | Map ->  [%expr PathMap.empty][@metaloc location]
-       | List -> [%expr []][@metaloc location]
-     end
-       
-  | SkinApp(_,_) ->
-     raise_loc_err location "empty_manifest_generator: Skin applications should not exist here."
      
 and manifest_function_generator inside expression vName = 
   let forestAst, location = get_NaL expression in
   let mainExp =
     match forestAst with
-    | Thunked(forestAst) -> empty_manifest_generator forestAst
+    | Thunked(forestAst) ->
+       [%expr
+           match Hashtbl.find cursor_id_to_manifest_table (get_cursor_id rep) with
+           | None -> Forest.make_empty_manifest (Filename.basename info.full_path)
+           | Some(manifest) -> manifest
+       ][@metaloc location]
     | Var(specificationName) ->
        [%expr
            [%e exp_make_ident location (manifest_name specificationName)]
@@ -797,20 +791,22 @@ and manifest_function_generator inside expression vName =
         let swapPath = Filename.concat swapDirectory basename in
         PadsInterface.pads_store padsManifest swapPath;
         let commit () =
+          if not (Forest.check_exists swapPath) then
+            failwith ("Forest temporary files broke. Expected a file at path " ^ swapPath);
           if Forest.check_exists storePath then
             Sys.remove storePath;
           Sys.rename swapPath storePath
         in
         let validate () =
           let errors =
-            List.map (fun error -> (baseName, PadsError error)) padsManifest.pads_man_errors
+            List.map ~f:(fun error -> (baseName, PadsError error)) padsManifest.pads_man_errors
           in
-          if Forest.check_exists storePath && not Forest.check_writeable storePath then
+          if (Forest.check_exists storePath) && not (Forest.check_writeable storePath) then
             (baseName, PermissionError) :: errors
           else
             errors
         in
-        { validate; commit; data = manifest}
+        { validate; commit}
        ][@metaloc location]
     | Predicate(forestAst, predicate) ->
        [%expr
@@ -828,10 +824,11 @@ and manifest_function_generator inside expression vName =
           if [%e exp_make_ocaml location predicate] then
             errors
           else
-            [basename, PredicateFail] :: errors
+            (baseName, PredicateFail) :: errors
           end
         in
-        { manifest with validate }
+        let commit () = () in
+        { commit; validate }
        ][@metaloc location]
     | File ->
        [%expr
@@ -841,6 +838,8 @@ and manifest_function_generator inside expression vName =
         let _ = Forest.store_file (rep,md) swapPath in
         let commit () =
           begin
+            if not (Forest.check_exists swapPath) then
+              failwith ("Forest temporary files broke. Expected a file at path " ^ swapPath);
             match Sys.file_exists storePath with
             | `Yes -> Sys.remove storePath
             | `No -> ()
@@ -850,7 +849,7 @@ and manifest_function_generator inside expression vName =
           Sys.rename swapPath storePath
         in
         let validate () = [] in
-        { validate; commit; data = () }
+        { validate; commit}
        ][@metaloc location]
     | Link ->
        [%expr
@@ -859,6 +858,8 @@ and manifest_function_generator inside expression vName =
         let swapPath = Filename.concat swapDirectory baseName in
         Forest.store_link (rep,md) swapPath;
         let commit () =
+          if not (Forest.check_exists swapPath) then
+            failwith ("Forest temporary files broke. Expected a link at path " ^ swapPath);
           begin
             match Sys.file_exists storePath with
             | `Yes ->  Unix.unlink storePath
@@ -869,7 +870,7 @@ and manifest_function_generator inside expression vName =
           Sys.rename swapPath storePath
         in
         let validate () = [] in
-        { validate; commit; data = () }
+        { validate; commit}
        ][@metaloc location]
     | Option(forestAst) ->
        [%expr
@@ -884,21 +885,16 @@ and manifest_function_generator inside expression vName =
              | _ -> ()
            in
            let validate () = [] in
-           let manifest = [%e empty_manifest_generator forestAst] in
-           { manifest with validate; commit }
+           { validate; commit }
         | (Some r, Some m) ->
            [%e manifest_function_generator true forestAst vName] ~swapDirectory:swapDirectory (r, m)
         | (Some r, None) ->
            let commit () = () in
            let validate () = [(baseName, OptMDRepInconsistency)] in
-           let manifest = [%e empty_manifest_generator forestAst] in
-           { manifest with validate; commit }
+           { validate; commit }
        ][@metaloc location]
 
     | Directory (entries) ->
-       let manifestAssignments =
-         List.map (fun (label,_) -> (manifest_name label),(manifest_name label)) entries
-       in
        let finalManifest = 
          [%expr
           let validate () =
@@ -919,6 +915,8 @@ and manifest_function_generator inside expression vName =
             ]
           in
           let commit () =
+            if not (Forest.check_exists swapPath) then
+              failwith ("Forest temporary files broke. Expected a directory at path " ^ swapPath);
             match Core.Sys.file_exists storePath, Core.Sys.is_directory storePath with
             | `Yes, `Yes ->
                [%e List.fold_right
@@ -936,8 +934,7 @@ and manifest_function_generator inside expression vName =
             | _ -> failwith 
                (Printf.sprintf "Failed to store directory at `%s` due to unknown causes" storePath)
           in
-          let data = [%e exp_make_record_s location manifestAssignments] in
-          { validate; commit; data }
+          { validate; commit}
          ][@metaloc location]
        in
        [%expr
@@ -976,7 +973,7 @@ and manifest_function_generator inside expression vName =
     | Comprehension(comprehensionType, forestAst, _) -> 
        let manifestExpression =
          [%expr 
-          let storePath = info.full_path in
+          let baseName = Filename.basename info.full_path in
           let zipped =
             match List.zip reps mds with
             | Some list -> list
@@ -984,7 +981,7 @@ and manifest_function_generator inside expression vName =
           in
           let manifests =
             List.map
-              ([%e manifest_function_generator true forestAst vName] ~swapDirectory:swapDirectory)
+              ~f:([%e manifest_function_generator true forestAst vName] ~swapDirectory:swapDirectory)
               zipped
           in
           let validate () =
@@ -995,21 +992,20 @@ and manifest_function_generator inside expression vName =
                 [(baseName,ComprehensionUnequalLength)]
             in
             List.fold_left
-              (fun errorAccumulator manifest -> manifest.validate () @ errorAccumulator)
-              errors
+              ~f:(fun errorAccumulator manifest -> manifest.validate () @ errorAccumulator)
+              ~init:errors
               manifests
           in
           let commit () =
-            List.iter (fun manifest -> manifest.commit ()) manifests
+            List.iter ~f:(fun manifest -> manifest.commit ()) manifests
           in
-          { validate; commit; data = manifests }
+          { validate; commit}
          ][@metaloc location]
        in
-       (* TODO (jdilorenzo): This is gonna need to produce a map too... *)
        if comprehensionType = Map
        then [%expr 
-             let reps = List.map snd (PathMap.bindings rep) in
-             let mds = List.map snd (PathMap.bindings md.data) in
+             let reps = List.map ~f:snd (PathMap.bindings rep) in
+             let mds = List.map ~f:snd (PathMap.bindings md.data) in
              [%e manifestExpression]][@metaloc location]
        else [%expr 
              let reps = rep in
@@ -1028,8 +1024,8 @@ and manifest_function_generator inside expression vName =
        [%expr
            match md.info with
            | None ->
-              let manifest = [%e empty_manifest_generator expression] in
-              let validate () = manifest.validate () @ [("",MDMissingInfo)] in
+              let manifest = Forest.empty_manifest in
+              let validate () = ("",MDMissingInfo) :: manifest.validate () in
               { manifest with validate }
            | Some(info) -> [%e mainExp]
        ][@metaloc location]
@@ -1049,3 +1045,4 @@ and manifest_function_generator inside expression vName =
          in
          [%e mainSetup])
        ][@metaloc location]
+

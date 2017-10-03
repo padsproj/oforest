@@ -7,8 +7,6 @@ open Parsetree
 val representation_type_generator: forest_node ast -> type_declaration list * core_type
 
 val md_type_generator: forest_node ast -> type_declaration list * core_type
-
-val manifest_type_generator: forest_node ast -> type_declaration list * core_type
     
-(** These functions take a Forest AST and generate the representation, metadata,
-    and manifest types corresponding to it *)
+(** These functions take a Forest AST and generate the representation and metadata
+    types corresponding to it *)

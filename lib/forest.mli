@@ -38,6 +38,7 @@ module PathMap : Map.S with type key = OrderedPath.t
 type manifest_error = 
 | ComprehensionUnequalLength
 | DirFilenameOverlap
+| ForestEmptyManifestError
 | MDMissingInfo
 | OptMDRepInconsistency
 | PadsError of Pads.pads_manifest_error
@@ -76,19 +77,16 @@ type 'a forest_md =
     as similar auxiliary data for sub specifications. *)
 
 
-type 'a manifest = 
+type manifest = 
   {
     validate: unit -> (filepath * manifest_error) list; (* Validates the correctness of the write *)
     commit: unit -> unit; (* Commits changes to the standard file system *)
-    data: 'a (* Stores sub manifests *)
   }
 
 (** Manifests are created prior to storing to determine what errors we
     will run into trying to store the specification. It contains a
-    list of such errors, a store function to complete the store and
-    the temporary path where the files are currently stored. The store
-    function and temporary path are used by other functions and should
-    not need to be accessed by a user directly. *)
+    validation function, which checks that a manifest conforms to the specification
+    and a commit function, which stores the data in the manifest to disk. *)
 
 (** {2 Helper functions} *)
     
@@ -174,7 +172,17 @@ val unit_md : filepath -> unit forest_md
     filling it with real file_info ([base_md]) or empty file_info
     ([empty_md]). The 'a is the data from
     sub-specifications. [unit_md] just calls [base_md] with unit. *)
+  
+val make_empty_manifest: filepath -> manifest
+val empty_manifest: manifest
 
+(** make_empty_manifest takes a filepath and creates an empty manifest where
+    commit does nothing and validate gives back a ForestEmptyManifestError at
+    the given path. empty_manifest instantiates make_empty_manifest with the empty
+    path. *)
+
+val fresh_cursor_id: int ref -> int
+  
 (** {2 File system helpers} *)
 
   
@@ -183,12 +191,11 @@ val check_writeable: filepath -> bool
   
 (** {2 Primitive Load/Store} *)
 
-val validate : 'a manifest -> (filepath * manifest_error) list
-val commit : 'a manifest -> unit
+val validate : manifest -> (filepath * manifest_error) list
+val commit : manifest -> unit
 
-(** These functions take a manifest and execute the store
-    function. [store_at] also allows the user to specify a path to store
-    the description at. *)
+(** These functions take a manifest and execute validate or commit
+    functions. *)
 
 val load_link : filepath -> (filepath * unit forest_md)
   

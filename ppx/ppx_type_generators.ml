@@ -10,8 +10,7 @@ let rec representation_type_generator e =
   | Thunked(fast) ->
     let declarations, field = representation_type_generator fast in
     let md_declarations, md = md_type_generator fast in
-    let _, manifest = manifest_type_generator fast in
-    let cursortype = [%type: ([%t field],[%t md], [%t manifest]) cursor ][@metaloc loc] in
+    let cursortype = [%type: ([%t field],[%t md]) cursor ][@metaloc loc] in
     (declarations @ md_declarations, cursortype)
   | Option(fast) -> 
     let declarations, field = representation_type_generator fast in
@@ -83,40 +82,3 @@ and md_type_generator e =
     (decls @ [recType], [%type: [%t typ_make_constr loc name] Forest.forest_md ][@metaloc loc])
   | SkinApp(_,_) ->
      raise_loc_err loc "md_type_generator: Skin applications should not exist here."
-
-and manifest_type_generator forest_ast =
-  let expression,location = get_NaL forest_ast in
-  match expression with 
-  | Link
-  | File -> 
-    ([], [%type: unit Forest.manifest][@metaloc location])
-  | Thunked (forest_ast)
-  | Predicate(forest_ast,_) 
-  | Url(forest_ast)
-  | Option(forest_ast)
-  | PathExp(_,forest_ast) -> manifest_type_generator forest_ast
-  | Var(vname) -> 
-    ([], typ_make_constr location (manifest_name vname))
-  | Pads(vname) ->
-     ([],
-      [%type: [%t typ_make_constr location (pads_manifest_name vname)] Forest.manifest]
-        [@metaloc location]) 
-  | Comprehension(Map,forest_ast,_) ->
-    let decli,typi = manifest_type_generator forest_ast in
-    (decli,[%type: ([%t typi] PathMap.t) Forest.manifest][@metaloc location])
-  | Comprehension(List,forest_ast,_) ->
-    let decli,typi = manifest_type_generator forest_ast in
-    (decli,[%type: ([%t typi] list) Forest.manifest ][@metaloc location])
-  | Directory (dlist) ->
-    let decls,fields = 
-      List.fold_right (fun (labeli,forest_asti) (decls,fields) ->
-        let decli, typi = manifest_type_generator forest_asti in 
-        let fieldi = typ_make_field location (manifest_name labeli) typi in
-        (decli@decls, fieldi::fields)) dlist ([],[])
-    in
-    let name = fresh () in 
-    let recType = typ_make_type_decl location ~kind:(Ptype_record fields) name in
-    (decls @ [recType],
-     [%type: [%t typ_make_constr location name] Forest.manifest ][@metaloc location])   
-  | SkinApp(_,_) ->
-     raise_loc_err location "manifest_type_generator: Skin applications should not exist here."

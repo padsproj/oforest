@@ -16,7 +16,3 @@ val new_function_generator: ?first:bool -> forest_node ast -> varname -> express
 val cost_function_generator: forest_node ast -> varname -> expression
 
 (** Generates logic for calculating the costs of loading the given Forest AST *)
-
-val empty_manifest_generator: forest_node ast -> expression
-
-(** Generates an empty manifest based on the given Forest AST *)

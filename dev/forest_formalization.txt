@@ -1,3 +1,640 @@
+==============================
+iFOREST DENOTATIONAL SEMANTICS
+==============================
+-- Questions --
+1. How do I actually add labels to the specifications?
+
+-- Notes --
+1. Currently, store does not accept paths and just stores based on
+paths in the MD. By adding an extra operation, you can still do a
+store_at though (specifically, making a cursor of the specification at
+that path).
+
+-- Definitions --
+
+Strings u
+Specification s ::= file | e :: s | <x:s1,s2> | P(e) | <s>
+Contents T : File of string | Link of Path | Directory of string list
+File Systems FS : Path -> T (partial)
+Paths r ::= \dot | r / u 
+
+Environments Env : Var -> Value (partial)
+
+('a,'b,'c) cursor: (unit -> ('a * 'b)) * (('a * 'b) -> 'c)
+
+type result = Ok | Unknown | Error
+
+-- Helper functions --
+
+mk_md: bool -> Path -> 'a -> 'a MD (Makes an MD of type 'a from Path and bool)
+get_data: 'a MD -> 'a
+get_bool: 'a MD -> bool
+
+load: ('a,'b,'c) cursor -> ('a * 'b)
+
+manifest: ('a, 'b, 'c) cursor -> ('a * 'b) -> 'c
+validate: 'a manifest -> result
+commit: 'a manifest -> FS -> FS
+empty_manifest: Manifest
+
+label: Spec -> ref (* We view the spec here as a node in the possibly
+infinite unrolled Specification AST and assign a unique label to each
+one. All labels are initialized to empty_manifest. *)
+
+-- Semantic functions --
+
+[_]_s : S -> Env -> F -> Path -> bool
+
+(* The types generated don't seem to have dependencies, so Env is
+probably unnecessary *)
+[_]_rt : S -> Env -> Type (* Rep type (subtype of value)*)
+[_]_md : S -> Env -> Type MD (* Meta data type *)
+[_]_F : S -> Env -> Type Manifest (* Manifest Type *)
+
+new : s : S -> E : Env -> FS -> Path ->  ([s]_rt E, [s]_md E, [s]_F E) cursor
+
+-- New Semantics (new) --
+
+new <s> E F r =
+  (fun () ->
+     let (lf,mf) = new s E F r in
+     let mf = fun (rep,md) ->
+       let manifest = mf (rep,md) in
+       label(<s>) := manifest;
+       manifest
+     in
+     ((lf,mf), mk_md true r ()),
+   fun (rep,md) -> 
+      let manifest = !label(<s>) in
+      let commit = commit manifest in
+      let validate () =
+        if not (get_bool md) then
+          Error
+        else
+          validate manifest
+        in
+        (commit,validate)
+  )
+
+new <x:s1,s2> E F r =
+  (fun () ->
+     let cur1 = new s1 E F r in
+     let y,y_md = load cur1 in
+     let z,z_md = load (new s2 E[x |-> y, x_md |-> y_md] F r) in
+     ((y,z), make_md ([<x:s1,s2>]_s E F r) r (y_md,z_md)),
+   fun ((y,z),md) ->
+     let y_md,z_md = get_data md in
+     let m1 = manifest (new s1 E F r) (y, y_md) in
+     let m2 = manifest (new s2 E[x |-> y, x_md |-> y_md] F r) (z, z_md) in
+     let commit F = commit m2 (commit m1 F) in
+     let validate () =
+       if get_bool md != (get_bool y_md AND get_bool z_md) then
+         Error
+       else
+         validate m1 && validate m2
+     in
+     (commit,validate)
+  )
+
+new P(e) E F r =
+  (fun () -> ((),mk_md ([P(e)]_s E F r) r ()),
+   fun (rep,md) ->
+     let commit F = F in
+     let validate () = (get_bool md =_res [P(e)]_s E F r) in
+     (commit, validate))
+
+new e::s E F r =
+  new s E F (r / [e]_e E)
+
+new file E F r =
+  (fun () -> (load_file F r,mk_md ([file]_s E F r) r ()),
+   fun (rep,md) ->
+     let commit F = store_file F (rep,md) in
+     let validate () = get_bool md || (not (get_bool md) && v="") in
+     (commit, validate))
+	 
+
+where
+x && y =
+  match x,y with 
+  | Error,_
+  | _,Error -> Error
+  | Unknown,_
+  | _,Unknown -> Unknown
+  | _ -> Ok
+
+-- Helper Semantics --
+
+empty_manifest = (fun F -> F, fun () -> Unknown)
+
+-- Specification Semantics ([_]_s) --
+
+[<x:s1,s2>]_s E F r =
+   let y,y_md = [s1]_l E F r in
+   [s1]_s E F r &&
+   [s2]_s E[x |-> y, x_md |-> y_md] F r
+
+[P(e)]_s E F r =
+   [e]_e E
+
+[e :: s]_s E F r =
+   let x = [e]_e E in
+   [s]_s E F (r / x)
+
+[Delay(s)]_s = true
+  (* Needs to be true instead of the underlying s,
+     o.w. it'll break our expectations for inductive specification. *) 
+
+[file]_s E F r =
+   match F r with
+   | File _ -> true
+   | _ -> false
+
+
+
+-- Roundtripping laws --
+
+- LoadStore
+
+If  new s E F r = cursor
+and load cursor = (v,d)
+and manifest cursor (v,d) = M
+then (commit M F) = F && validate M >= Unknown
+
+- StoreLoad
+
+If  manifest (new s E F r) (v,d) = M
+and (commit M F) = F' && validate M >= Unknown
+and load (new s E F' r) = (v',d')
+then v = v' && d = d' 
+
+- StrongLoadStore
+
+If  new s E F r = cursor
+and load cursor = (v,d)
+and \forall c_i \in SC(v), StrongLoadStore applies and has been run (not
+sure how to say this)
+and manifest cursor (v,d) = M
+then (commit M F) = F && validate M = Ok
+
+where SC(v) is the set of all sub-cursors in v.
+
+Or if we load all in depth first manner, then manifest all, then commit all, 
+F won't change and validate M = Ok
+
+- StrongStoreLoad
+
+If  manifest (new s E F r) (v,d) = M
+and (commit M F) = F' && validate M >= Unknown
+and load (new s E F' r) = (v',d')
+and \forall l \in LD(s), !l != empty_manifest
+then v = v' && d = d' && validate M = Ok
+
+where LD(s) = Set of labels on delays within s
+
+---- Proofs ----
+
+--- LoadStore
+
+If  new s E F r = cursor
+and load cursor = (v,d)
+and manifest cursor (v,d) = M
+then (commit M F) = F && validate M >= Unknown
+
+By induction on s:
+
+- File
+(v,d) =  (u, true) or ("", false)
+... Clearly works with correct defs of load_file and store_file (as in Forest paper, except validation doesn't look at FS)
+
+- P(e)
+(v,d) = ((), false) or ((), true)
+e shouldn't have changed value since no expressions have side effects
+
+- e :: s
+Just LoadStore at a different r, which holds for s by IH
+
+- <x : s1, s2>
+(v,d) = ((y,z), (y_md, z_md))
+By IH for s1 and IH for s2 with E = E[x |-> y,x_md |-> y_md] 
+
+- Delay(s)
+(v,d) = (c_s, true)
+commit empty_manifest -> F = F and validate M = Unknown
+
+
+--- StoreLoad
+
+If  manifest (new s E F r) (v,d) = M
+and (commit M F) = F' && validate M >= Unknown
+and load (new s E F' r) = (v',d')
+then v = v' && d = d' 
+
+By induction on s:
+
+- File
+("asd",False) always fails
+("", False) either deletes file or does nothing, loading will get that
+back in either case
+
+- P(e)
+e shouldn't have changed value since no expressions have side effects
+
+- e :: s
+Just StoreLoad at a different r, which holds for s by IH
+
+- <x : s1, s2>
+(v,d) = ((y,z), (p_md,(y_md, z_md))
+By IH for s1 and IH for s2 with E = E[x |-> y, x_md |-> y_md]
+If p_md != (y_md and z_md) then validate M is Error and thus StoreLoad
+holds
+If they are equal, then either one of the two is false, in which case
+p_md is false (and will be when loaded) or they are all true.
+
+- Delay(s)
+(v,d) = (c_s, false) or (c_s, true)
+1. (c_s, false)
+commit empty_manifest -> F = F' and validate M = Unknown
+v' = c_s, d' = false
+2. (c_s, true)
+Load will give back c_s, but d' will be true since label is already determined
+
+--- StrongLoadStore
+
+If  new s E F r = cursor
+and load cursor = (v,d)
+and \forall c_i \in SC(v), StrongLoadStore applies and has been run (not
+sure how to say this)
+and manifest cursor (v,d) = M
+then (commit M F) = F && validate M = Ok
+
+By induction on s:
+
+- File
+- P(e)
+By LoadStore
+
+- e :: s
+Just StrongLoadStore at a different r, which holds for s by IH
+
+- <x : s1, s2>
+(v,d) = ((y,z), (p_md, (y_md, z_md)))
+By IH for s1 and IH for s2 with E = E[x |-> y, x_md |-> y_md]
+
+- Delay(s)
+(v,d) = (c_s, true)
+c_s must've been loaded and stored since it is a sub cursor in v
+Thus validate M will return Ok, and since (commit M (commit M F)) = commit M F
+StrongLoadStore holds.
+
+---- Double commit = commit
+
+If manifest (new s E F r) (v,d) = M
+then commit M (commit M F) = commit M F
+
+
+By induction on s:
+
+- File
+Storing a file twice gives same result
+
+- P(e)
+Does nothing
+
+- e :: s
+By IH, just at a different path
+
+- <x : s1, s2>
+By IH for s1 and s2
+
+- Delay(s)
+Does nothing, or by IH on s
+
+
+---- StrongStoreLoad
+
+If  manifest (new s E F r) (v,d) = M
+and (commit M F) = F' && validate M >= Unknown
+and load (new s E F' r) = (v',d')
+and \forall l \in LD(s), !l != empty_manifest
+then v = v' && d = d' && validate M = Ok
+
+where LD(s) = Set of labels on delays within s
+
+By induction on s:
+
+- File
+- P(e)
+Holds by StoreLoad
+
+- e :: s
+Holds by IH
+
+- <x : s1, s2>
+By IH for s1 and s2 (and similar StoreLoad
+
+- Delay(s)
+Since M can't be the empty manifest (since the label does not contain it),
+it must be a normal manifest for s. When we validate that we can't validate to Unknown,
+so we must validate to Ok (if we validate to >= Unknown). Thus, d must've been true.
+When we load again, we will get (c_s,true) since the label is already determined.
+
+
+==============================
+OLD POSSIBLE StoreLoad
+==============================
+- StrongStoreLoad 
+
+If  manifest (new Undelay(s) E F r) (v,d) = M
+and (commit M F) = F' && validate M >= Unknown
+and load (new Undelay(s) E F' r) = (v',d')
+then v = v' && d = d' and validate M = Ok
+and for c = new s E F r,
+\forall c_i \in SC(get_piece(v,d,c)),
+if manifest c_i get_piece(v,d,c_i) = M_i
+   and (commit M_i F) = F_i' 
+   and load c_i = (v_i,d_i)
+   then (v_i,d_i) = get_piece(v,d,c_i) and validate M_i = Ok (Except only if done in DFS :()
+
+where Undelay(s) and get_piece(v,d,c) does what you expect. 
+
+- StrongStoreLoad
+
+Given a v,d, F_0 if \forall c_i in SC(v)
+manifest c_i (v_i,d_i) = M_i
+and (commit M_i F_{i-1}) = F_i && validate M_i = Ok
+and manifest (new S E F_n r) (v,d) = M
+and (commit M F_n) = F' then validate M = Ok or Error
+if validate M = Ok
+and load (new s E F' r) = (v',d')
+then v = v' && d = d'
+
+Or, if we manifest all in depth first manner, commit all and validate to Ok, then load all, all stored v's = loaded v's and same with d's.
+Also, it's impossible to validate to unknown.
+
+where '=' on cursors does not concern refs
+and SC(v) = all sub cursors in v
+and PC(v) = the parent cursor of v (if it exists)
+
+Delay notes:
+- validate M says that there can be no empty sub_manifests.
+-- Thus, standard LoadStore doesn't work
+-- Unless we remove the failure there. Then this all already works out
+I think. 
+- Maybe if we require a depth first traversal of the tree
+
+What we want to say at a high level:
+- Whatever amount you load/store if you then store/load it right back,
+you get the same FS/rep+md, and we validate to Unknown or Ok
+- In the special case where all subcursors are loaded/stored prior to
+s, we get same property, but validate to Ok
+
+
+By induction on s.
+
+================================================================================
+OLD!!!!!      IGNORE BELOW!!!!
+================================================================================
+================================================================================
+OLD!!!!!      IGNORE BELOW!!!!
+================================================================================
+================================================================================
+OLD!!!!!      IGNORE BELOW!!!!
+================================================================================
+
+
+
+
+
+Expressions Exp
+
+Store : Var -> Manifest (partial)
+
+(* In practice, we'd use scoping for the Environment, and a global
+store for the Store and File System *)
+
+
+'a manifest: (unit -> Error list) * (unit -> unit) * 'a
+
+-- Helper functions --
+
+generate_unique_variable: unit -> Var
+mk_md: Path -> 'a -> 'a MD (Makes an empty MD of type 'a from Path)
+mk_md_error: Error -> Path -> 'a -> 'a MD (Makes an MD of type 'a from
+Path, and adds an error)
+get_path: 'a MD -> Path
+get_data: 'a MD -> 'a
+
+get_commit: 'a manifest -> (unit -> unit)
+get_validate: 'a manifest -> (unit -> Error list)
+
+validate: 'a manifest -> Error list
+commit: 'a manifest -> unit
+
+-- Semantic functions --
+
+(* Tells us whether a Filestore conforms to its specification *)
+[_]_rt : S -> Env -> Type (* Rep type (subtype of value)*)
+[_]_md : S -> Env -> Type MD (* Meta data type *)
+[_]_ma : S -> Env -> Type Manifest (* Manifest Type *)
+
+
+new : s : S -> E : Env -> Store -> F -> Path ->
+([s]_rt E, [s]_md E, [s]_ma E) cursor
+
+(* Loads information from the file system *)
+[_]_l : s : S -> E : Env -> F -> Path -> ([s]_rt E * [s]_md E)
+
+(* Creates a manifest to store information back to the file system *)
+[_]_m : s : S -> E : Env ->  F -> Store -> ([s]_rt E * [s]_md E) -> ([s]_ma E * Store)
+
+empty_manifest: s: S -> E: Env -> [s]_ma E
+default_md: s: S -> E: Env -> Path -> [s]_md E
+
+[_]_e : Exp -> Env -> Value
+
+-- new Semantics (new) --
+
+new Delay(s) E F r =
+    let (l_f, m_f) = new s E F r in
+    let unique_var = generate_unique_variable () in
+    let m_f =
+      fun S (r,md) ->
+        let manifest = m_f S (r,md) in
+        (manifest,S[unique_var |-> manifest])
+    in
+    (fun () -> ((l_f,m_f), mk_md r ()),
+     fun S _ ->
+       if unique_var \in dom(S) then
+         (S(unique_var), S)
+       else
+         (empty_manifest s E, S)
+
+new s E F r =
+    (fun () -> [s]_l E F r,
+     [s]_m E F)
+
+OR: (A version that allows for swaps, not sure how to do this without
+refs... Basically, we need some part or the entirety of the cursor to
+be used as a key within the cursor... Thus the problem)
+
+new Delay(s) E F r =
+    let (l_f, m_f) = new s E F r in
+    let manifest_ref = ref (empty_manifest s E) in
+    let m_f =
+      fun (r,md) ->
+        let manifest = m_f (r,md) in
+        manifest_ref := manifest;
+        manifest
+    in
+    (fun () -> ((l_f,m_f), mk_md r ()),
+     fun (_,_,ref) -> !ref,
+     manifest_ref)
+
+new s E F r =
+    let manifest_ref = ref (empty_manifest s E) in
+    (fun () -> [s]_l E F r,
+     [s]_m E F,
+     manifest_ref)
+
+
+-- Load Semantics ([_]_l) --
+
+[<x:s1,s2>]_l E F r =
+   let y,y_md = [s1]_l E F r in
+   let z,z_md = [s2]_l E[x |-> y, x_md |-> y_md] F r in
+   ((y,z), mk_md r (y_md,z_md))
+
+[[s|x in e]]_l E F r =
+   let pathList = [e]_e E in
+   let rep,md = unzip (map (fun y -> [s]_l E[x |-> y] F r) pathList) in
+   (rep, mk_md r md)
+
+[P(e)]_l E F r =
+   if [e]_e E then
+     ((), mk_md r ())
+   else
+     ((), mk_md_error PredicateFail r ())
+
+[e :: s]_l E F r =
+   let x = [e]_e E in
+   [s]_l E F (r / x)
+
+[Delay(s)]_l E F r = (new Delay(s) E F r, mk_md r ())
+
+[s?]_l E F r = if r \in dom(F) then [s]_l E F r else (None, mk_md r None)
+
+[file]_l E = load_file
+[link]_l E = load_link
+
+-- Manifest Semantics ([_]_m) --
+
+[<x:s1,s2>]_m E F S ((r1,r2),(m1,m2)) =
+   let manifest1,S = [s1]_m E F S (r1,m1) in
+   let manifest2,S = [s2]_m E[x |-> r1, x_md |-> m1] F S (r2,m2) in
+   let validate = validate manifest1 @ validate manifest2 in
+   let commit = commit manifest1; commit manifest2 in
+   ((validate,commit,(manifest1,manifest2)), S)
+
+[[s|x in e]]_m E F S (rep,md) =
+   let pathList = [e]_e E in
+   let k = min(length rep, length (get_data md), length pathList) in
+   let manifestList =
+     map3_n k (fun y rep md -> [s]_m E[x |-> y] F S (rep,md)) pathList rep md
+   in
+   let validate =
+     let errors = if j = l = m then [] else [ListLengthError] in
+     fold
+     (fun manifest accumulator -> (validate manifest) @ accumulator)
+     manifestList
+     errors
+   in 
+   let commit = iter (fun manifest -> commit manifest) manifestList in
+   ((validate,commit,manifestList), S)
+
+
+let rep,md = unzip (map (fun y -> ) pathList) in
+   (rep, mk_md r md)
+
+[P(e)]_m E F S (rep,md) =
+   let validate = fun () -> 
+     if [e]_e E then
+       []
+     else
+       [PredicateFail]
+   in
+   (validate, fun () -> (), ()), S
+
+[e :: s]_m E F S (rep,md) =
+   (* Needs validation that 'e' is the end of the path in the md? Except
+   they can be chained... If we actually wrap this in yet another md,
+   our problems are solved I guess, but it's kinda gross...*)
+   [s]_m E F S (rep,md)
+
+[Delay(s)]_m E F S (rep,md) =
+
+
+
+
+
+
+
+[s?]_m E F S (rep,md) =
+  match rep, md with
+  | Some rep, Some md -> [s]_m E F S (rep,md)
+  | None, _ -> delete_path_manifest E F (get_path md), S
+  | Some rep, None ->
+    let ((validate,commit,data),S) =
+      [s]_m E F S (rep, default_md s E r)
+    in
+    let validate = fun () -> false in
+    ((validate,commit,data),S)
+
+[file]_m E F S (rep,md) = file_manifest E F (rep,md), S
+[link]_m E F S (rep,md) = link_manifest E F (rep,md), S
+
+-- Rep Type Semantics ([_]_rt) --
+-- MD Type Semantics ([_]_md) --
+-- Manifest Type Semantics ([_]_ma) --
+-- Specification Semantics ([_]_s) --
+
+[<x:s1,s2>]_s E F r =
+   let y,y_md = [s1]_l E F r in
+   [s1]_s E F r &&
+   [s2]_s E[x |-> y, x_md |-> y_md] F r
+
+[[s|x in e]]_s E F r =
+   let pathList = [e]_e E in
+   fold (&&) true
+   (map (fun y -> [s]_s E[x |-> y] F r) pathList)
+
+[P(e)]_s E F r =
+   [e]_e E
+
+[e :: s]_s E F r =
+   let x = [e]_e E in
+   [s]_s E F (r / x)
+
+[s?]_s E F r = true
+
+[Delay(s)]_s = [s@h]_s = [s]_s
+
+[file]_s E F r =
+   match F r with
+   | File _ -> true
+   | _ -> false
+
+[link]_s E F r =
+   match F r with
+   | Link _ -> true
+   | _ -> false
+
+
+Questions:
+- Do we want P(e) to be able to ask path related questions or anything
+from the filesystem directly?
+- Not super clear if it's legal to do types this way in denotational semantics..
+
 =====================
 iFOREST FORMALIZATION
 =====================

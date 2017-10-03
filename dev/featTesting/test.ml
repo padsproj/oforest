@@ -38,12 +38,18 @@ let lines = Str.split (Str.regexp "\n") ;;
 
 [%%forest {| 
 
-  super = directory {f is "woo" :: <file>;
+  test_delay = <file> option
+
+  (* TODO (jdilorenzo):
+     Spec: If manifest for f exists, then use rep used to make that,
+     Else: Set f = some default val and EmptyManifestError
+  *)
+  super = directory {f is "woo" :: file;
                      g is [x :: <file where $this = f$> | x <- $["woo"]$]}
 
   test_desc = directory { b is "hey" :: file;
                           a is "noo" :: file
-                          } where $get_kind this_att == DirectoryK$ 
+                          } where $get_kind this_att = DirectoryK$ 
 
   path_file = "foo" :: file
 
@@ -60,66 +66,75 @@ let lines = Str.split (Str.regexp "\n") ;;
                            sym is [ l :: link | l <- matches RE ".*", $get_kind l_att = SymK$];
                            dir is [ d :: universal | d <- matches RE ".*", $get_kind d_att = DirectoryK$] 
                          }
-(*   
-   universal_inc = directory { asc is [ f :: file | f <- matches RE ".*", $get_kind f_att = AsciiK$];
-                           bin is [ b :: file | b <- matches RE ".*", $get_kind b_att = BinaryK$];
-                           sym is [ l :: link | l <- matches RE ".*", $get_kind l_att = SymK$];
-                           dir is [ d :: <universal_inc> | d <- matches RE ".*", $get_kind d_att = DirectoryK$]
-                         }
-*)
+
    new_ofile = d @ mgtSkin
 
 
   universal_inc = universal@uniSkin2
-(*
-
-  let s = new_ofile
-
-    urlTest = URL file
- *)
 |}]
 
 
-let get_ex_dir () = (Printf.sprintf "%s/examples/%s/%s" (Sys.getcwd ()) exName "tstdir")
+let get_ex_dir () = (Printf.sprintf "%s/dev/%s/%s" (Sys.getcwd ()) exName "tstdir")
 
 let rec trawl_univI (cur :  (universal_inc_rep, universal_inc_md) cursor) =
   load cur >>= fun ((r,r_md) : (universal_inc_rep * universal_inc_md)) ->
-  let _ = List.iter (fun s -> Printf.printf "%s\n" s) r.asc in
-  let _ = List.iter (fun s -> Printf.printf "%s\n" s) r.sym in
-  List.fold_left (fun acc d -> 
-    trawl_univI d >>= fun _ ->
-    acc                          
-  ) (return ()) r.dir
+  let _ = List.iter ~f:(fun s -> Printf.printf "%s\n" s) r.asc in
+  let _ = List.iter ~f:(fun s -> Printf.printf "%s\n" s) r.sym in
+  List.fold_left
+    ~f:(fun acc d -> 
+      trawl_univI d >>= fun _ ->
+      acc                          
+    )
+    ~init:(return ())
+    r.dir
 
 
-let rec add_lineI cur =
-  load cur >>= fun ((r,r_md) : (universal_inc_rep * universal_inc_md)) ->
-  let r = {r with asc = (List.map (fun s ->Bytes.cat s "\nAdded Line!") r.asc)} in
-  manifest cur (r,r_md) >>= fun mani ->
-  let _ = if List.length mani.errors > 0 then print_manifest_errors mani else store mani in
-  List.fold_left (fun acc d ->
-    add_lineI d >>= fun _ ->
-    acc) (return ()) r.dir
+let add_lineI cur =
+  let rec add_lineI_helper cur = 
+    load cur >>= fun ((r,r_md) : (universal_inc_rep * universal_inc_md)) ->
+    let r = {r with asc = (List.map ~f:(fun s -> s ^ "\nAdded Line!") r.asc)} in
+    List.fold_left
+      ~f:(fun acc d ->
+        add_lineI_helper d >>= fun _ ->
+        acc)
+      ~init:(return ())
+      r.dir
+    >>= fun _ -> manifest cur (r,r_md)
+  in
+  add_lineI_helper cur >>| fun manifest ->
+  let errors = validate manifest in
+  if List.length errors > 0
+  then print_manifest_errors errors
+  else commit manifest
   
 
-let rec remove_linesI cur = 
-  load cur >>= fun ((r,r_md) : (universal_inc_rep * universal_inc_md)) ->
-  let r = {r with asc = (List.map (fun s ->
-    let pos = Str.search_forward (Str.regexp_string "\nAdded Line!") s 0 in
-    Bytes.sub s 0 pos
-  ) r.asc)}
+let remove_linesI cur = 
+  let rec remove_linesI_helper cur = 
+    load cur >>= fun ((r,r_md) : (universal_inc_rep * universal_inc_md)) ->
+    let r = {r with asc = (List.map ~f:(fun s ->
+      let pos = Str.search_forward (Str.regexp_string "\nAdded Line!") s 0 in
+      String.sub s 0 pos
+    ) r.asc)}
+    in
+    List.fold_left
+    ~f:(fun acc d ->
+      remove_linesI_helper d >>= fun _ ->
+      acc)
+      ~init:(return ())
+      r.dir
+    >>= fun _ -> manifest cur (r,r_md)
   in
-  manifest cur (r,r_md) >>= fun mani ->
-  let _ = if List.length mani.errors > 0 then print_manifest_errors mani else store mani in
-  List.fold_left (fun acc d ->
-    remove_linesI d >>= fun _ ->
-    acc) (return ()) r.dir
+  remove_linesI_helper cur >>| fun manifest ->
+  let errors = validate manifest in
+  if List.length errors > 0
+  then print_manifest_errors errors
+  else commit manifest
 
 let incremental () = 
   universal_inc_new (get_ex_dir ()) >>= fun cur ->
   trawl_univI cur >>= fun () ->
   get_cost (add_lineI cur) >>= fun c ->
-  let _ = List.iter (fun (name,num) -> Printf.printf "%s:%d\n" name num) c in
+  let _ = List.iter ~f:(fun (name,num) -> Printf.printf "%s:%d\n" name num) c in
   let _ = Printf.printf "\n" in
   trawl_univI cur >>= fun () ->
   remove_linesI cur >>| fun () ->
@@ -130,7 +145,7 @@ let _ =
   let (r,m) = urlTest_load "http://db.gamefaqs.com/console/ps2/file/final_fantasy_x_2_chocobo.txt" in
   Printf.printf "%s\n" r;*)
   let (_,c) = run (incremental ()) in
-  List.iter (fun (name,num) -> Printf.printf "%s:%d\n" name num) c
+  List.iter ~f:(fun (name,num) -> Printf.printf "%s:%d\n" name num) c
 
 
 (* Unincremental Manifest test   *)

@@ -26,6 +26,7 @@ module PathMap = Map.Make(OrderedPath)
 type manifest_error = 
 | ComprehensionUnequalLength
 | DirFilenameOverlap
+| ForestEmptyManifestError
 | MDMissingInfo
 | OptMDRepInconsistency
 | PadsError of Pads.pads_manifest_error
@@ -37,6 +38,7 @@ let error_to_string = function
      "The representation and the metadata lists are of different length"
   | DirFilenameOverlap ->
      "The directory path indicated in the metadata is currently occupied by a file"
+  | ForestEmptyManifestError -> "Forest Manifest is empty"
   | MDMissingInfo -> "Metadata is missing the info 'component'"
   | OptMDRepInconsistency -> "Either the metadata or the rep (but not both) of an option is None"
   | PadsError(Pads.EmptyManifestError) -> "PADS Manifest is empty"
@@ -67,12 +69,11 @@ type 'a forest_md =
     data : 'a;
   }
 
-type 'a manifest = 
+type manifest = 
   {
     validate: unit -> (filepath * manifest_error) list;
     (* TODO: See why you need filepath *)
     commit: unit -> unit; 
-    data: 'a
   }
 (* TODO: Do I still need any of this 
    storeFunc : ?dirname:filepath -> ?basename:filepath -> unit -> unit;
@@ -215,10 +216,22 @@ let empty_md (data : 'a) (path : filepath) : 'a forest_md =
 
 let unit_md : (filepath -> unit forest_md) = base_md ()  
 
+let make_empty_manifest path =
+  {
+    commit = (fun () -> ());
+    validate = (fun () -> [path,ForestEmptyManifestError])
+  }
+
+let empty_manifest = make_empty_manifest ""
+   
+let fresh_cursor_id cursor_id =
+  incr cursor_id;
+  !cursor_id
+  
 (* Safe permission checking and removal *)
 
 let check_exists path =
-  match Core.Sys.file_exists path  with
+  match Core.Sys.file_exists ~follow_symlinks:false path with
   | `Yes -> true
   | _ -> false
 
@@ -229,9 +242,9 @@ let check_writeable path =
   
 (* Loadings and Storing primitives *)
     
-let validate (manifest : 'a manifest) : (filepath * manifest_error) list = manifest.validate ()
+let validate (manifest : manifest) : (filepath * manifest_error) list = manifest.validate ()
   
-let commit (manifest: 'a manifest) : unit = manifest.commit ()
+let commit (manifest: manifest) : unit = manifest.commit ()
     
 let load_link (path: filepath) : filepath * unit forest_md =
   let currTime = Core.Time.now () in
