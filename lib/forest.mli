@@ -170,7 +170,10 @@ val unit_md : filepath -> unit forest_md
     ([empty_md]). The 'a is the data from
     sub-specifications. [unit_md] just calls [base_md] with unit. *)
 
+val get_path : ?default:filepath -> 'a forest_md -> filepath
   
+(** Attempts to get a path from a forest_md *)
+
 (** {2 Primitive Load/Store} *)
 
 val store : manifest -> unit

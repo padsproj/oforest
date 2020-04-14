@@ -13,6 +13,4 @@ let load_for_forest (parse : Pads.filepath -> ('a * 'b Pads.pads_md))
     (path : Pads.filepath) : ('a * 'b Pads.pads_md Forest.forest_md) =
   let (rep,md) = parse path in (rep, pads_to_forest md path)
 
-let pads_store (mani : 'a Pads.padsManifest) (path : Pads.filepath) : unit =
-  let data = mani.pads_str in
-  Core.Out_channel.write_all path ~data
+let pads_store = PadsParser.pads_store

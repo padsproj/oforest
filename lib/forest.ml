@@ -202,6 +202,11 @@ let empty_md (data : 'a) (path : filepath) : 'a forest_md =
 
 let unit_md : (filepath -> unit forest_md) = base_md ()  
 
+let get_path ?(default="") md  =
+  let open Core.Option in
+  (md.info >>| fun info -> info.full_path)
+  |> Option.value ~default
+
 (* Loadings and Storing primitives *)
     
 let store (mani : manifest) : unit = 
