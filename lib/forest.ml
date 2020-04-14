@@ -207,6 +207,11 @@ let get_path ?(default="") md  =
   (md.info >>| fun info -> info.full_path)
   |> Option.value ~default
 
+let get_path_exn md  =
+  Core.Option.value_exn md.info
+  |> fun info -> info.full_path
+
+
 (* Loadings and Storing primitives *)
     
 let store (mani : manifest) : unit = 

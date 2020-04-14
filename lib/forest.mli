@@ -171,6 +171,7 @@ val unit_md : filepath -> unit forest_md
     sub-specifications. [unit_md] just calls [base_md] with unit. *)
 
 val get_path : ?default:filepath -> 'a forest_md -> filepath
+val get_path_exn : 'a forest_md -> filepath
   
 (** Attempts to get a path from a forest_md *)
 
