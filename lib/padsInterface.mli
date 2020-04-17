@@ -5,7 +5,13 @@
 
 val pads_to_forest : 'a Pads.pads_md -> Pads.filepath -> 'a Pads.pads_md Forest.forest_md
 
-(** [pads_to_forest] turns a PADS metadata into a Forest metadata *)
+(** [pads_to_forest] turns a PADS metadata into a Forest metadata and
+    should be used for pre-existing files *)
+
+val new_pads_to_forest : 'a Pads.pads_md -> Pads.filepath -> 'a Pads.pads_md Forest.forest_md
+
+(** [new_pads_to_forest] turns a PADS metadata into a Forest metadata and
+    should be used for not-yet-existing files *)
   
 val load_for_forest :  (Pads.filepath -> ('a * 'b Pads.pads_md)) -> Pads.filepath -> ('a * 'b Pads.pads_md Forest.forest_md)
 
