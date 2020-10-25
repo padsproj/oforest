@@ -18,6 +18,6 @@ val load_for_forest :  (Pads.filepath -> ('a * 'b Pads.pads_md)) -> Pads.filepat
 (** [load_for_forest] takes a PADS parsing function and a filepath and
     gets back a Forest representation of the parsed data *)
   
-val pads_store : 'a Pads.padsManifest -> Pads.filepath -> unit
+val pads_store : Pads.filepath -> 'a Pads.padsManifest  -> unit
 
 (** [pads_store] stores data from a PADS manifest to the given filepath *)

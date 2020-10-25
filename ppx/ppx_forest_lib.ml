@@ -116,8 +116,8 @@ let rec forest_cost_gen (e : forest_node ast) (vName : string) : Parsetree.expre
   | SkinApp(_,_) -> raise_loc_err loc "forest_cost_gen: Skin applications should not exist here."
   | Var(x) -> exp_make_ident loc (cost_name x) 
   | Thunked(_)
-  | Pads(_)
   | Url(_) -> [%expr fun (r,m) -> CursorMonad.cost_id ][@metaloc loc]
+  | Pads(_) -> [%expr CursorMonad.cost_pads ][@metaloc loc]
 
   | PathExp(_,e) 
   | Predicate(e,_) -> forest_cost_gen e vName 
@@ -826,7 +826,7 @@ and forest_manifest_gen (inside:bool) (e: forest_node ast) (vName : string) : Pa
           let mani = [%e exp_make_ident loc (pads_manifest_name x)] (rep, md.data) in
           let errors = List.map (fun y -> (basename, PadsError y)) mani.pads_man_errors in
           let tmppath = Filename.concat tmpdir basename in
-          let _ = PadsInterface.pads_store mani tmppath in
+          let _ = PadsInterface.pads_store tmppath mani in
           let sfunc ?dirname:(dirname=dirname) ?basename:(basename=basename) () =
             let storepath = Filename.concat dirname basename in
             let _ = if Sys.file_exists storepath then Sys.remove storepath else () in

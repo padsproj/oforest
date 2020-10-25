@@ -91,13 +91,15 @@ val err_to_string : manifest_error -> string
 
 (** [err_to_string] turns a manifest error into a string *)
 
-val print_mani_errors : manifest -> unit
 val print_md_errors : 'a forest_md -> unit
+val print_mani_errors : manifest -> unit
 val exit_on_error : 'a forest_md -> unit
+val exit_on_mani_error : manifest -> manifest
 
-(** These functions print manifest and metadata errors respectively.
-    The last one exits after printing the errors if there are any.*)
-
+(** These functions print metadata and manifest errors respectively.
+    The last two additionally exit after printing the errors if there
+    are any. [exit_on_mani_error] returns its input otherwise,
+    allowing a nice chaining of commands *)
   
 val sort_comprehension :
   (('a * 'b forest_md) -> ('a * 'b forest_md) -> int)
@@ -169,6 +171,14 @@ val unit_md : filepath -> unit forest_md
     filling it with real file_info ([base_md]) or empty file_info
     ([empty_md]). The 'a is the data from
     sub-specifications. [unit_md] just calls [base_md] with unit. *)
+
+val insert_into_comp 
+    : ('a * 'b) -> ('a list * 'b list forest_md)
+    -> ('a list * 'b list forest_md)
+
+(** This function inserts an entry into a comprehension metadata,
+    which is useful for adding additional entries. Usage is:
+    [insert_md_in_comp_md] [entry_to_be_inserted] [comp_md] *)
 
 val get_path : ?default:filepath -> 'a forest_md -> filepath
 val get_path_exn : 'a forest_md -> filepath

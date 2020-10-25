@@ -85,25 +85,33 @@ let sort_comp_path ((rep,md) : 'a list * 'b forest_md list forest_md)
     | Some(i1),Some(i2) -> String.compare i1.full_path i2.full_path 
   in
   sort_comprehension comp (rep,md)
-
-let print_mani_errors (mani: manifest) =
-  List.iter (fun (path,err) -> 
-    Printf.printf "%s: %s\n" path (err_to_string err)
-  ) mani.errors
     
 let print_md_errors (md: 'a forest_md) =
   List.iter (fun err -> 
     Printf.printf "Error: %s\n" err
   ) md.error_msg
 
+let print_mani_errors (mani: manifest) =
+  List.iter (fun (path,err) -> 
+    Printf.printf "%s: %s\n" path (err_to_string err)
+  ) mani.errors
     
 let exit_on_error md =
   if md.num_errors > 0
   then begin
     print_md_errors md;
-    exit 1;
+    exit 1
   end
   else ()
+    
+let exit_on_mani_error mani =
+  if List.length mani.errors > 0
+  then begin
+    print_mani_errors mani;
+    exit 1
+  end
+  else mani
+
 
 (* Helper functions *)
     
@@ -201,6 +209,9 @@ let empty_md (data : 'a) (path : filepath) : 'a forest_md =
   }
 
 let unit_md : (filepath -> unit forest_md) = base_md ()  
+
+let insert_into_comp (r,m) (rs,ms) =
+  (r :: rs, {ms with data = m :: ms.data})
 
 let get_path ?(default="") md  =
   let open Core.Option in
@@ -349,6 +360,7 @@ module type CostMon = sig
     val cost_file : (string * unit forest_md) -> cost
     val cost_link : (filepath * unit forest_md) -> cost
     val cost_dir : (varname list * 'a forest_md) -> cost
+    val cost_pads : ('a * 'b forest_md) -> cost
 end
 
 (* Example from paper: Tally number of files (not links etc) loaded *)
@@ -360,6 +372,7 @@ module CostTallyMon : CostMon with type cost = int = struct
   let cost_file _ = 1
   let cost_link _ = cost_id
   let cost_dir _ = cost_id
+  let cost_pads = 1
 end
 
 (* Example from paper: Total file size *)
@@ -374,6 +387,7 @@ module CostSizeMon : CostMon with type cost = int = struct
   let cost_file = size_check
   let cost_link = size_check
   let cost_dir _ = cost_id
+  let cost_pads = size_check
 end
 
 (* Example from paper: Total load time *)
@@ -388,6 +402,7 @@ module CostTimeMon : CostMon with type cost = Core.Time.Span.t = struct
   let cost_file = get_time
   let cost_link = get_time
   let cost_dir _ = cost_id
+  let cost_pads = get_time
 end
 
 (* Example from paper: Multiset of names of files loaded *)
@@ -408,6 +423,7 @@ module CostNameMon : CostMon with type cost = (string * int) list = struct
   let cost_file = get_path
   let cost_link = get_path
   let cost_dir _ = cost_id
+  let cost_pads = get_path
 end
 
 (* Unit Cost Monad, to get no costs *)
@@ -418,6 +434,7 @@ module CostUnitMon : CostMon with type cost = unit = struct
   let cost_file _ = cost_id
   let cost_link _ = cost_id
   let cost_dir _ = cost_id
+  let cost_pads = cost_id
 end
 
 module type CursorMonad = sig
