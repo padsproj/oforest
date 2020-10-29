@@ -214,6 +214,7 @@ module type CostMon = sig
     val cost_file : (string * unit forest_md) -> cost
     val cost_link : (filepath * unit forest_md) -> cost
     val cost_dir : (varname list * 'a forest_md) -> cost
+    val cost_pads : ('a * 'b forest_md) -> cost
 end
 
 (** [CostMon] is the type of Cost Monoids. They have some cost type,

@@ -372,7 +372,7 @@ module CostTallyMon : CostMon with type cost = int = struct
   let cost_file _ = 1
   let cost_link _ = cost_id
   let cost_dir _ = cost_id
-  let cost_pads = 1
+  let cost_pads _ = 1
 end
 
 (* Example from paper: Total file size *)
@@ -434,7 +434,7 @@ module CostUnitMon : CostMon with type cost = unit = struct
   let cost_file _ = cost_id
   let cost_link _ = cost_id
   let cost_dir _ = cost_id
-  let cost_pads = cost_id
+  let cost_pads _ = cost_id
 end
 
 module type CursorMonad = sig
